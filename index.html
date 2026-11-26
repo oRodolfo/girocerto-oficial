@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GiroCerto · Ciclo Financeiro</title>
+<meta name="description" content="Simulador de ciclos financeiros, prazos médios e políticas de recebíveis — Administração Financeira de Curto Prazo. Dados reais: Havan S.A.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Manrope:wght@600;700;800&display=swap">
+<style>
+/*
+VOICE: painel de trabalho financeiro, objetivo e didático (padrão visual do protótipo Ecossistema Convictta).
+IDEA: a linha do tempo do ciclo — do estoque ao recebimento, contra o prazo de pagamento.
+PICTURE: régua do ciclo operacional x PMP, com o ciclo financeiro destacado.
+COLOUR and TYPE: menu cinza-claro pastel #ECEEF1, marca azul #396F91 (da logo), cartões brancos; Manrope nos títulos, DM Sans no texto.
+LAYOUT: menu lateral fixo + cabeçalho + conteúdo em cartões; no celular, menu vira faixa horizontal.
+*/
+:root{
+  color-scheme:light;
+  --brand:#396F91;--brand-h:#2E5C78;--brand-soft:#E8F0F6;--brand-ink:#2E5C78;
+  --side:#ECEEF1;--side-2:#E0E4EA;--side-line:rgba(32,41,56,.10);--side-text:#3A4555;
+  --canvas:#F5F6F8;--surface:#FFFFFF;--border:#E9EDF2;--border-s:#CDD5DF;--subtle:#F8FAFC;
+  --text:#202938;--text-2:#5B6779;--text-3:#64748B;--link:#1D4ED8;
+  --ok:#21875A;--ok-soft:#E8F6EE;--info:#3D72BC;--info-soft:#EDF4FF;--warn:#996000;--warn-soft:#FFF4E6;--bad:#C84B42;--bad-soft:#FFF0EE;--neu:#596575;--neu-soft:#F0F2F5;
+  /* séries dos gráficos (validadas: CVD ΔE ≥ 8, contraste ≥ 3:1) */
+  --s-pme:#2F6DB5;--s-pmr:#C07A12;--s-pmp:#2E9E8A;--s-cf:#202938;--grid:#EEF1F5;
+  --fh:"Manrope","Segoe UI",Arial,sans-serif;--fb:"DM Sans","Segoe UI",Arial,sans-serif;
+  --r-btn:9px;--r-card:14px;--shadow:0 1px 2px rgba(25,38,55,.04),0 8px 24px rgba(25,38,55,.05);
+  --focus:0 0 0 3px #fff,0 0 0 5px var(--link);--sw:252px;--hh:68px;
+}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0}
+body{background:var(--canvas);color:var(--text);font:15px/1.55 var(--fb);-webkit-font-smoothing:antialiased;overflow-x:clip}
+h1,h2,h3{font-family:var(--fh);margin:0;text-wrap:balance}
+p{margin:0}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--link)}
+:focus{outline:none}:focus-visible{box-shadow:var(--focus);border-radius:6px}
+.ic{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tnum{font-variant-numeric:tabular-nums}
+.nowrap{white-space:nowrap}
+
+/* Botões */
+.btn{text-decoration:none;color:var(--text);display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 18px;border-radius:var(--r-btn);border:1px solid var(--border-s);background:var(--surface);font-weight:600;line-height:1.2;white-space:nowrap;transition:background .12s,border-color .12s}
+.btn:hover{background:var(--subtle);border-color:#B7C1CE}
+.btn:active{transform:translateY(1px)}
+.btn--primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:700}
+.btn--primary:hover{background:var(--brand-h);border-color:var(--brand-h)}
+.btn--ghost{border-color:transparent;background:transparent}
+.btn--ghost:hover{background:var(--neu-soft)}
+.btn--danger-o{color:var(--bad);border-color:#EBC3BF}
+.btn--danger-o:hover{background:var(--bad-soft)}
+.btn--sm{min-height:36px;padding:6px 12px;font-size:14px}
+
+/* Campos */
+.field{display:flex;flex-direction:column;gap:6px}
+.label{font-weight:600;font-size:14.5px}
+.label .opt{font-weight:400;color:var(--text-3)}
+.hint{font-size:13px;color:var(--text-3)}
+.input,.select{width:100%;min-height:44px;border:1px solid var(--border-s);border-radius:var(--r-btn);background:var(--surface);padding:10px 14px;font-size:16px;transition:border-color .12s,box-shadow .12s}
+.input:hover,.select:hover{border-color:#AEB9C7}
+.input:focus,.select:focus{border-color:var(--link);box-shadow:0 0 0 3px rgba(29,78,216,.16)}
+.input[aria-invalid=true]{border-color:var(--bad);box-shadow:0 0 0 3px rgba(200,75,66,.12)}
+.input.is-edited{background:#F3F8FB;border-color:#9DBCD0}
+.input{text-align:right;font-variant-numeric:tabular-nums}
+.unit-wrap{position:relative}
+.unit-wrap .unit{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text-3);pointer-events:none}
+.unit-wrap .input{padding-left:64px}
+.select{appearance:none;padding-right:40px;text-align:left;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23202938' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:20px;cursor:pointer}
+
+/* Badges e tags */
+.badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 12px 4px 10px;font-size:13px;font-weight:600;line-height:1.35;white-space:nowrap}
+.badge .ic{width:16px;height:16px;stroke-width:2}
+.b-ok{color:var(--ok);background:var(--ok-soft)}.b-info{color:var(--info);background:var(--info-soft)}.b-warn{color:var(--warn);background:var(--warn-soft)}.b-bad{color:var(--bad);background:var(--bad-soft)}.b-neu{color:var(--neu);background:var(--neu-soft)}
+.tag{display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;white-space:nowrap}
+.tag::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.t-real{background:var(--ok-soft);color:var(--ok)}
+.t-sim{background:var(--brand-soft);color:var(--brand-ink)}
+.t-edit{background:var(--info-soft);color:var(--info)}
+.t-calc{background:var(--neu-soft);color:var(--neu)}
+
+/* Cartões */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow);padding:24px}
+.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.card-title{font-size:19px;font-weight:800;letter-spacing:-.01em}
+.card-sub{color:var(--text-3);font-size:14.5px;margin-top:4px}
+
+/* Estrutura */
+.app{display:grid;grid-template-columns:var(--sw) minmax(0,1fr);min-height:100vh}
+.sidebar{position:sticky;top:0;height:100vh;background:var(--side);color:var(--side-text);border-right:1px solid #DDE2E8;display:flex;flex-direction:column;padding:20px 12px 16px;z-index:40}
+.brand{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:0 8px 22px;text-decoration:none}
+.brand-logo{display:block;width:100%;max-width:212px;height:auto}
+.brand-sub{font-size:11.5px;color:var(--text-3);padding-left:4px}
+.menu-btn{display:none}
+.nav{display:flex;flex-direction:column;gap:4px;flex:1;overflow:auto}
+.nav a{display:flex;align-items:center;gap:14px;min-height:48px;padding:0 14px;border-radius:10px;color:var(--side-text);text-decoration:none;font-size:15.5px;font-weight:500;transition:background .12s}
+.nav a:hover{background:var(--side-2);color:var(--text)}
+.nav a[aria-current=page]{background:var(--brand);color:#fff;font-weight:700}
+.nav a.nav-parent.in-group{background:var(--side-2);color:var(--text);font-weight:700}
+.subnav{display:flex;flex-direction:column;gap:2px;margin:0 0 4px 26px;padding-left:12px;border-left:2px solid #D3D9E1}
+.nav .subnav a{min-height:40px;font-size:14.5px;padding:0 12px;gap:0}
+.tabs{align-self:flex-start;display:inline-flex;gap:4px;padding:4px;background:var(--neu-soft);border-radius:12px;flex-wrap:wrap}
+.tabs a{min-height:40px;display:inline-flex;align-items:center;padding:0 16px;border-radius:9px;text-decoration:none;color:var(--text-2);font-weight:600;font-size:15px}
+.tabs a:hover{color:var(--text);background:#E6EAEF}
+.tabs button{min-height:40px;padding:0 16px;border-radius:9px;border:0;background:transparent;color:var(--text-2);font-weight:600;font-size:15px}
+.tabs button:hover{color:var(--text);background:#E6EAEF}
+.tabs button[aria-checked=true]{background:var(--brand);color:#fff;font-weight:700}
+.tabs a[aria-current=page]{background:var(--brand);color:#fff;font-weight:700}
+.nav a:focus-visible{box-shadow:0 0 0 3px var(--side),0 0 0 5px #396F91}
+.side-team{border-top:1px solid var(--side-line);padding:14px 10px 0;margin-top:12px;font-size:12.5px;color:var(--text-3);line-height:1.45}
+.side-team b{display:block;color:var(--text);font-weight:600;font-size:13.5px;margin-top:6px}
+.main-col{display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:30;min-height:var(--hh);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:10px 32px;flex-wrap:wrap}
+.crumbs{display:flex;align-items:center;gap:8px;color:var(--text-2);font-size:15px}
+.crumbs b{color:var(--text);font-weight:600}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.topbar .select{min-height:40px;width:auto;min-width:220px;font-size:15px}
+.content{padding:28px 32px 56px;max-width:1360px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.eyebrow{font-size:13px;font-weight:700;color:var(--text-3);margin-bottom:6px}
+.page-title{font-size:clamp(28px,3.4vw,38px);font-weight:800;letter-spacing:-.025em;line-height:1.1}
+.page-sub{color:var(--text-2);font-size:17px;margin-top:8px;max-width:70ch}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.view{display:none;flex-direction:column;gap:20px}
+.view.is-on{display:flex}
+[hidden]{display:none!important}
+
+/* Grades */
+.g-kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.g-2{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px}
+.g-2e{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.g-f{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}
+
+/* KPI */
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow);padding:18px 20px;display:flex;flex-direction:column;gap:6px}
+.kpi-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.kpi-label{font-size:14.5px;font-weight:600;color:var(--text-2)}
+.kpi-value{font-family:var(--fh);font-size:clamp(24px,2.4vw,30px);font-weight:800;letter-spacing:-.02em;line-height:1.15;white-space:nowrap}
+.kpi-note{font-size:13.5px;color:var(--text-3)}
+.kpi-miss{font-size:13.5px;color:var(--warn);background:var(--warn-soft);border-radius:8px;padding:6px 10px}
+.kpi.is-bad{border-color:#F0C9C5}.kpi.is-bad .kpi-value{color:var(--bad)}
+.kpi.is-ok .kpi-value{color:var(--ok)}
+
+/* Alertas */
+.alerts{display:flex;flex-direction:column;gap:10px}
+.alert{display:flex;gap:12px;padding:14px 16px;border-radius:12px;border:1px solid transparent}
+.alert .ic{margin-top:1px}
+.alert b{display:block;font-weight:700}
+.alert p{font-size:14.5px;color:var(--text-2)}
+.a-bad{background:var(--bad-soft);border-color:#F3D2CE}.a-bad .ic{color:var(--bad)}
+.a-warn{background:var(--warn-soft);border-color:#F4DDBB}.a-warn .ic{color:var(--warn)}
+.a-ok{background:var(--ok-soft);border-color:#C9EAD8}.a-ok .ic{color:var(--ok)}
+.a-info{background:var(--info-soft);border-color:#D3E2F7}.a-info .ic{color:var(--info)}
+
+/* Régua do ciclo */
+.cycle{position:relative;min-height:210px}
+.cycle>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.cycle-sim{min-height:190px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13.5px;color:var(--text-2);margin-top:12px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.legend i.line{height:3px;border-radius:2px;vertical-align:3px;width:18px}
+.legend i.dash{height:0;border-top:2.5px dashed var(--s-cf);background:none!important;border-radius:0;vertical-align:3px;width:18px}
+
+/* Tabelas */
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th,td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}
+th{font-size:13px;font-weight:700;color:var(--text-3);background:var(--subtle)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.hl td{background:#EDF3F8}
+tbody tr:hover td{background:#FAFBFC}
+td.muted{color:var(--text-3)}
+.miss{color:var(--warn);font-size:13px}
+.up{color:var(--bad)}.down{color:var(--ok)}
+
+/* Chips de prazo */
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{min-height:44px;padding:8px 16px;border-radius:999px;border:1px solid var(--border-s);background:var(--surface);font-weight:600;font-size:15px}
+.chip:hover{background:var(--subtle)}
+.chip[aria-pressed=true]{background:#DCE1E8;border-color:#8C97A6;color:var(--text);font-weight:800;box-shadow:inset 0 0 0 1px #8C97A6}
+.row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.row .field{flex:1 1 180px}
+
+/* Interruptor */
+.switch{display:flex;align-items:center;gap:12px;cursor:pointer;font-weight:600}
+.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.switch .track{width:46px;height:26px;border-radius:999px;background:#CDD5DF;position:relative;flex:none;transition:background .15s}
+.switch .track::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .15s}
+.switch input:checked+.track{background:var(--ok)}
+.switch input:checked+.track::after{transform:translateX(20px)}
+.switch input:focus-visible+.track{box-shadow:var(--focus)}
+
+/* Gráficos */
+.fig{position:relative;min-height:320px}
+.fig>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.tip{position:absolute;pointer-events:none;background:#F3F5F8;color:var(--text);border:1px solid #CDD5DF;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5;box-shadow:0 12px 32px rgba(25,38,55,.14);white-space:nowrap;z-index:5;display:none}
+.tip b{font-family:var(--fh)}
+.tip span{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px}
+
+/* Fórmulas */
+.formula{font-family:var(--fh);font-weight:700;font-size:16px;background:var(--subtle);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:10px 0}
+.flist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.flist .card h3{font-size:17px}
+.flist .card p{font-size:14.5px;color:var(--text-2)}
+.prose{display:flex;flex-direction:column;gap:10px;font-size:15.5px;color:var(--text)}
+.prose p{max-width:80ch}
+ul.clean{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:15px}
+.note{font-size:13.5px;color:var(--text-3)}
+.verif{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.verif div{border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--subtle)}
+.verif small{display:block;color:var(--text-3);font-size:13px}
+.verif>div>b{display:block;font-family:var(--fh);font-size:18px;margin:2px 0 4px}
+
+/* Responsivo */
+@media(max-width:1180px){.g-kpi{grid-template-columns:repeat(2,minmax(0,1fr))}.g-2{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .sidebar{position:sticky;top:0;height:auto;flex-direction:row;align-items:center;padding:8px 12px;gap:8px;border-right:0;border-bottom:1px solid #DDE2E8}
+  .brand{padding:0 4px;flex:none}.brand-sub{display:none}.brand-logo{width:auto;height:48px;max-width:none}
+  .menu-btn{display:inline-flex;margin-left:auto;background:var(--brand);border-color:var(--brand);color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(57,111,145,.35)}
+  .menu-btn:hover,.sidebar.is-open .menu-btn{background:var(--brand-h);border-color:var(--brand-h);color:#fff}
+  .nav{display:none;position:absolute;top:100%;left:0;right:0;flex-direction:column;gap:2px;padding:8px 12px 14px;background:var(--side);border-bottom:1px solid #CDD5DF;box-shadow:0 14px 28px rgba(25,38,55,.16);max-height:calc(100vh - 70px);overflow:auto}
+  .sidebar.is-open .nav{display:flex}
+  .nav a{min-height:46px}
+  .side-team{display:none}
+  .topbar{position:static;padding:10px 16px}.content{padding:20px 16px 48px}
+  .g-2e,.flist,.g-f,.verif{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:600px){.g-kpi{grid-template-columns:minmax(0,1fr)}.card{padding:18px}.topbar .select{min-width:0;width:100%}.topbar-right{width:100%}table{font-size:13px}}
+@media(prefers-reduced-motion:no-preference){.view.is-on{animation:fade .22s ease}@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}}
+@media print{.sidebar,.topbar,.actions,.btn,.no-print{display:none!important}.app{display:block}.content{padding:0}.card{box-shadow:none;break-inside:avoid}body{background:#fff}}
+.rel-sec h2{font-size:19px;font-weight:800;margin-bottom:12px}
+.mem{display:flex;flex-direction:column;gap:8px}
+.mem div{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:14.5px}
+.mem div span:first-child{font-weight:700}
+.mem code{font-family:var(--fh);font-weight:600;font-size:14.5px;overflow-wrap:anywhere}
+.reco{display:flex;flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;counter-reset:r}
+.reco li{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;counter-increment:r}
+.reco li::before{content:counter(r);width:30px;height:30px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800;font-family:var(--fh)}
+.reco b{display:block}.reco p{color:var(--text-2);font-size:14.5px}
+@media(max-width:600px){.mem div{grid-template-columns:minmax(0,1fr);gap:2px}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></symbol>
+  <symbol id="i-data" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></symbol>
+  <symbol id="i-sim" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+  <symbol id="i-cmp" viewBox="0 0 24 24"><path d="M7 4v16M17 4v16"/><path d="m3 8 4-4 4 4M13 16l4 4 4-4"/></symbol>
+  <symbol id="i-hist" viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M6 16l4-5 3 3 5-7"/></symbol>
+  <symbol id="i-fx" viewBox="0 0 24 24"><path d="M4 7h7M7.5 3.5v7M14 5l6 6M20 5l-6 6M4 17h7M14 15h6M14 19h6"/></symbol>
+  <symbol id="i-src" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h0"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h0"/></symbol>
+  <symbol id="i-calc" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h0M12 11h0M16 11h0M8 15h0M12 15h0M16 15h0M8 18h8"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7"/><path d="M4 4v4h4"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="sidebar" aria-label="Menu principal">
+    <a class="brand" href="#painel" aria-label="GiroCerto — início">
+      <img class="brand-logo" src="data:image/png;base64,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" alt="GiroCerto" width="640" height="351">
+      <small class="brand-sub">Ciclo financeiro e recebíveis</small>
+    </a>
+    <button class="btn menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="nav"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span id="menuLbl">Menu</span></button>
+    <nav class="nav" id="nav">
+      <a href="#painel"><svg class="ic"><use href="#i-home"/></svg>Painel</a>
+      <a href="#dados"><svg class="ic"><use href="#i-data"/></svg>Dados da empresa</a>
+      <a href="#simulacao" class="nav-parent" data-group="simulacao comparacao"><svg class="ic"><use href="#i-sim"/></svg>Simulação</a>
+      <div class="subnav" role="group" aria-label="Simulação">
+        <a href="#simulacao" class="sub">Simular prazos</a>
+        <a href="#comparacao" class="sub">Comparação de cenários</a>
+      </div>
+      <a href="#historico"><svg class="ic"><use href="#i-hist"/></svg>Histórico</a>
+      <a href="#relatorio"><svg class="ic"><use href="#i-data"/></svg>Relatório anual</a>
+      <a href="#formulas"><svg class="ic"><use href="#i-fx"/></svg>Fórmulas e premissas</a>
+      <a href="#fontes"><svg class="ic"><use href="#i-src"/></svg>Fontes</a>
+    </nav>
+    <div class="side-team">Administração Financeira de Curto Prazo · Prof. Marco Antonio
+      <b>Laís Vicente de Carvalho</b>RA 116395
+      <b>Gabriela Praxedes Neves</b>RA 117947
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <header class="topbar">
+      <div class="crumbs">GiroCerto <span aria-hidden="true">›</span> <b id="crumb">Painel</b></div>
+      <div class="topbar-right">
+        <span id="srcTag" class="tag t-real">Dado real · DF Havan 2025</span>
+        <label class="sr-only" for="yearSel" style="position:absolute;left:-9999px">Base de dados</label>
+        <select class="select" id="yearSel" aria-label="Base de dados"></select>
+      </div>
+    </header>
+
+    <main class="content">
+
+<!-- ================= PAINEL ================= -->
+<section class="view" id="v-painel" aria-labelledby="t-painel">
+  <div class="page-head">
+    <div>
+      <div class="eyebrow" id="pEyebrow">Havan S.A. · exercício de 2025 · valores em R$ mil</div>
+      <h1 class="page-title" id="t-painel">Diagnóstico do ciclo financeiro</h1>
+      <p class="page-sub" id="pHeadline">—</p>
+    </div>
+    <div class="actions"><a class="btn btn--primary" href="#simulacao"><svg class="ic"><use href="#i-sim"/></svg>Simular política de recebimento</a></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div><h2 class="card-title">Linha do tempo do ciclo</h2><p class="card-sub">Da compra da mercadoria ao recebimento da venda, comparado ao prazo de pagamento aos fornecedores.</p></div>
+      <span class="tag t-calc">Calculado a partir dos dados</span>
+    </div>
+    <div class="cycle" id="cycMain" role="img" aria-label="Linha do tempo do ciclo operacional e financeiro"></div>
+    <div class="legend"><span><i style="background:var(--s-pme)"></i>Estoque (PME)</span><span><i style="background:var(--s-pmr)"></i>Recebimento (PMR)</span><span><i style="background:var(--s-pmp)"></i>Pagamento a fornecedores (PMP)</span><span><i style="background:#F4D3CF"></i>Dias a financiar</span><span><i style="background:#CDEBD9"></i>Folga financiada por fornecedores</span></div>
+  </div>
+
+  <div class="g-kpi" id="kpiCycle"></div>
+  <div class="g-kpi" id="kpiGiro"></div>
+
+  <div class="g-2">
+    <div class="card">
+      <div class="card-head"><div><h2 class="card-title">O que os números dizem</h2><p class="card-sub">Interpretação automática com base nos conceitos da disciplina.</p></div></div>
+      <div class="prose" id="pInterp"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2 class="card-title">Alertas de caixa</h2><p class="card-sub">Sinais de possível dificuldade financeira.</p></div></div>
+      <div class="alerts" id="pAlerts"></div>
+    </div>
+  </div>
+
+  <div class="card" id="verifCard">
+    <div class="card-head"><div><h2 class="card-title">Verificação com números publicados pela Havan</h2><p class="card-sub">Comparação dos nossos cálculos com indicadores que a própria empresa divulga.</p></div><span class="tag t-real">Dado real</span></div>
+    <div id="verifBody"></div>
+  </div>
+</section>
+
+<!-- ================= DADOS ================= -->
+<section class="view" id="v-dados" aria-labelledby="t-dados">
+  <div class="page-head">
+    <div>
+      <div class="eyebrow" id="dEyebrow">Entrada de dados · valores em R$ mil</div>
+      <h1 class="page-title" id="t-dados">Dados da empresa</h1>
+      <p class="page-sub">Os campos já vêm preenchidos com dados reais das demonstrações financeiras da Havan. Escolha o ano no topo, altere o que quiser ou escolha “Outra empresa” para digitar seus próprios dados.</p>
+    </div>
+    <div class="actions">
+      <button class="btn btn--primary" id="btnCalc" type="button"><svg class="ic"><use href="#i-calc"/></svg>Calcular</button>
+      <button class="btn" id="btnRestore" type="button"><svg class="ic"><use href="#i-reset"/></svg>Restaurar dados reais</button>
+      <button class="btn btn--danger-o" id="btnClear" type="button"><svg class="ic"><use href="#i-trash"/></svg>Limpar campos</button>
+    </div>
+  </div>
+  <div class="card" style="padding:16px 20px">
+    <div class="row" style="align-items:center;gap:16px">
+      <span class="label" id="unitLbl">Unidade dos valores do balanço</span>
+      <div class="tabs" id="unitSel" role="radiogroup" aria-labelledby="unitLbl">
+        <button type="button" role="radio" data-u="mil">Em milhares (R$ mil)</button>
+        <button type="button" role="radio" data-u="mi">Em milhões (R$ milhões)</button>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:8px">Escolha a mesma unidade em que o balanço da empresa foi publicado. Ao trocar, os valores já preenchidos são convertidos automaticamente. Use vírgula para as casas decimais.</p>
+  </div>
+  <div class="alert a-info" id="dataMsg"><svg class="ic"><use href="#i-info"/></svg><div><b>Como preencher</b><p id="dataHint">Digite os valores como aparecem no relatório (ex.: 1.907.838). <span> Campos com * são necessários para os prazos médios. Campos vazios não são inventados: o indicador que depende deles mostra o que falta.</span></p></div></div>
+  <div class="g-2e" id="formCards"></div>
+</section>
+
+<!-- ================= SIMULAÇÃO ================= -->
+<section class="view" id="v-simulacao" aria-labelledby="t-sim">
+  <nav class="tabs" aria-label="Seções da simulação"><a href="#simulacao">Simular prazos</a><a href="#comparacao">Comparação de cenários</a></nav>
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">Simulação › Simular prazos</div>
+      <h1 class="page-title" id="t-sim">Simulação de prazos</h1>
+      <p class="page-sub">Escolha um novo prazo de recebimento e, se quiser, um novo prazo de pagamento aos fornecedores. Vendas, custos, estoques e o CGL ficam constantes.</p>
+    </div>
+  </div>
+  <div class="g-2">
+    <div class="card">
+      <div class="card-head"><div><h2 class="card-title">Condições simuladas</h2><p class="card-sub" id="simBase">—</p></div><span class="tag t-sim">Simulação</span></div>
+      <div class="field"><span class="label">Prazo de recebimento dos clientes (PMR)</span>
+        <div class="chips" id="pmrChips" role="group" aria-label="Prazo de recebimento"></div>
+      </div>
+      <div class="row" style="margin-top:16px">
+        <div class="field"><label class="label" for="pmrCustom">Outro prazo de recebimento <span class="opt">(dias)</span></label><input class="input" id="pmrCustom" inputmode="decimal" placeholder="ex.: 20"></div>
+        <div class="field"><label class="label" for="pmpSim">Prazo de pagamento aos fornecedores <span class="opt">(dias)</span></label><input class="input" id="pmpSim" inputmode="decimal"></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn btn--primary" id="btnSim" type="button"><svg class="ic"><use href="#i-sim"/></svg>Simular</button>
+        <button class="btn btn--ghost" id="btnSimReset" type="button"><svg class="ic"><use href="#i-reset"/></svg>Voltar aos prazos atuais</button>
+      </div>
+      <p class="hint" style="margin-top:10px">PME mantido no valor atual. Negociar prazo maior com fornecedores aumenta o PMP e reduz o ciclo financeiro.</p>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2 class="card-title">Resultado imediato</h2><p class="card-sub">Cenário simulado x atual</p></div></div>
+      <div class="alerts" id="simKpis"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2 class="card-title">Ciclo atual x ciclo simulado</h2><p class="card-sub">Mesma régua de dias para os dois cenários.</p></div></div>
+    <p class="label" style="margin-bottom:4px">Atual <span class="tag t-real" style="margin-left:6px">Dado real</span></p>
+    <div class="cycle cycle-sim" id="cycA" role="img" aria-label="Ciclo atual"></div>
+    <p class="label" style="margin:10px 0 4px">Simulado <span class="tag t-sim" style="margin-left:6px">Simulação</span></p>
+    <div class="cycle cycle-sim" id="cycS" role="img" aria-label="Ciclo simulado"></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2 class="card-title">Todas as políticas de recebimento lado a lado</h2><p class="card-sub" id="polSub">Mantendo o PMP simulado. Clique numa linha para simulá-la.</p></div><span class="tag t-sim">Simulação</span></div>
+    <div class="scroll"><table id="polTable"></table></div>
+  </div>
+</section>
+
+<!-- ================= COMPARAÇÃO ================= -->
+<section class="view" id="v-comparacao" aria-labelledby="t-cmp">
+  <nav class="tabs" aria-label="Seções da simulação"><a href="#simulacao">Simular prazos</a><a href="#comparacao">Comparação de cenários</a></nav>
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">Simulação › Comparação de cenários</div>
+      <h1 class="page-title" id="t-cmp">Comparação de cenários</h1>
+      <p class="page-sub" id="cmpSub">—</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="scroll"><table id="cmpTable"></table></div>
+  </div>
+  <div class="g-2">
+    <div class="card">
+      <div class="card-head"><div><h2 class="card-title">Interpretação financeira</h2></div></div>
+      <div class="prose" id="cmpInterp"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2 class="card-title">Custo financeiro (opcional)</h2><p class="card-sub">Quanto custa ou libera, por ano, a variação da NCG.</p></div></div>
+      <label class="switch"><input type="checkbox" id="selicOn"><span class="track"></span>Incluir custo financeiro (Selic)</label>
+      <div id="selicBox" hidden style="margin-top:16px;display:flex;flex-direction:column;gap:14px">
+        <div class="field"><label class="label" for="selicRate">Taxa anual (% a.a.)</label><input class="input" id="selicRate" inputmode="decimal" value="15,00"><span class="hint">Padrão: Selic de 15,00% a.a., mantida pelo Copom em 10/12/2025 (ver Fontes). Pode ser trocada por outra taxa.</span></div>
+        <div id="selicOut"></div>
+      </div>
+    </div>
+  </div>
+  <div class="card"><div class="card-head"><div><h2 class="card-title">Alertas do cenário simulado</h2></div></div><div class="alerts" id="cmpAlerts"></div></div>
+</section>
+
+<!-- ================= HISTÓRICO ================= -->
+<section class="view" id="v-historico" aria-labelledby="t-hist">
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">Havan S.A. · 2019 a 2025 · dados reais</div>
+      <h1 class="page-title" id="t-hist">Evolução dos prazos e do capital de giro</h1>
+      <p class="page-sub" id="hHeadline">—</p>
+    </div>
+  </div>
+  <div class="g-2e">
+    <div class="card">
+      <div class="card-head"><div><h2 class="card-title">Prazos médios e ciclo financeiro</h2><p class="card-sub">Dias · passe o mouse sobre um ano</p></div></div>
+      <div class="fig" id="chLines" role="img" aria-label="Gráfico de linhas dos prazos médios"></div>
+      <div class="legend"><span><i class="line" style="background:var(--s-pme)"></i>PME</span><span><i class="line" style="background:var(--s-pmr)"></i>PMR</span><span><i class="line" style="background:var(--s-pmp)"></i>PMP</span><span><i class="dash"></i>Ciclo financeiro</span></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2 class="card-title">CGL, NCG e Saldo de Tesouraria</h2><p class="card-sub">R$ milhões · passe o mouse sobre uma barra</p></div></div>
+      <div class="fig" id="chBars" role="img" aria-label="Gráfico de barras de CGL, NCG e Saldo de Tesouraria"></div>
+      <div class="legend"><span><i style="background:var(--s-pme)"></i>CGL</span><span><i style="background:var(--s-pmr)"></i>NCG</span><span><i style="background:var(--s-pmp)"></i>Saldo de Tesouraria</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2 class="card-title">Tabela anual</h2><p class="card-sub">Clique num ano para usá-lo como cenário atual.</p></div><span class="tag t-real">Dado real · DF Havan</span></div>
+    <div class="scroll"><table id="histTable"></table></div>
+  </div>
+  <div class="card"><div class="card-head"><div><h2 class="card-title">Leitura do capital de giro ano a ano</h2><p class="card-sub">Inclui o alerta de saldo de tesouraria negativo (NCG maior que o CGL).</p></div></div><div class="alerts" id="histAlerts"></div></div>
+</section>
+
+<!-- ================= RELATÓRIO ANUAL ================= -->
+<section class="view" id="v-relatorio" aria-labelledby="t-rel">
+  <div class="page-head">
+    <div>
+      <div class="eyebrow" id="rEyebrow">Havan S.A. · relatório anual · dados reais</div>
+      <h1 class="page-title" id="t-rel">Relatório anual</h1>
+      <p class="page-sub" id="rHeadline">—</p>
+    </div>
+    <div class="actions"><button class="btn" id="btnPrint" type="button"><svg class="ic"><use href="#i-data"/></svg>Imprimir ou salvar em PDF</button></div>
+  </div>
+  <div class="card no-print" style="padding:16px 20px">
+    <div class="row" style="align-items:center"><span class="label">Ano do relatório</span><div class="chips" id="relYears" role="group" aria-label="Ano do relatório"></div></div>
+    <p class="hint" id="printHint" style="margin-top:8px">O relatório usa sempre os dados reais das demonstrações, mesmo que você tenha editado os campos.</p>
+  </div>
+  <div id="relBody" style="display:flex;flex-direction:column;gap:20px"></div>
+</section>
+
+<!-- ================= FÓRMULAS ================= -->
+<section class="view" id="v-formulas" aria-labelledby="t-fx">
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">Base conceitual</div>
+      <h1 class="page-title" id="t-fx">Fórmulas, significados e premissas</h1>
+      <p class="page-sub">Todos os cálculos da aplicação usam ano comercial de 360 dias e saldos finais do balanço patrimonial.</p>
+    </div>
+  </div>
+  <div class="flist" id="fxList"></div>
+  <div class="g-2e">
+    <div class="card">
+      <div class="card-head"><div><h2 class="card-title">Classificação das contas circulantes</h2><p class="card-sub">Premissa adotada para separar contas operacionais e financeiras.</p></div></div>
+      <div class="scroll"><table>
+        <thead><tr><th>Grupo</th><th>Contas da Havan incluídas</th></tr></thead>
+        <tbody>
+          <tr><td><b>Ativo circulante financeiro</b></td><td>Caixa e equivalentes; aplicações financeiras; instrumentos financeiros derivativos</td></tr>
+          <tr><td><b>Ativo circulante operacional</b></td><td>Contas a receber; estoques; impostos a recuperar; adiantamentos a colaboradores; partes relacionadas; outros ativos</td></tr>
+          <tr><td><b>Passivo circulante financeiro</b></td><td>Empréstimos, financiamentos e debêntures; dividendos a pagar; passivo de arrendamentos</td></tr>
+          <tr><td><b>Passivo circulante operacional</b></td><td>Fornecedores; obrigações sociais e trabalhistas; obrigações tributárias; partes relacionadas; outros passivos</td></tr>
+        </tbody></table></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2 class="card-title">Premissas e limitações</h2></div></div>
+      <ul class="clean">
+        <li><b>360 dias e saldo final do ano</b>, conforme definido pela dupla. A Havan usa outros métodos em seus próprios indicadores, o que explica pequenas diferenças.</li>
+        <li><b>Compras não aparecem na DRE</b>: são deduzidas por Compras = CMV + Estoque final − Estoque inicial.</li>
+        <li><b>PMR sobre receita líquida</b>: o contas a receber inclui impostos sobre vendas; por isso o PMR sobre receita líquida tende a ser um pouco maior que o real.</li>
+        <li><b>Fornecedores</b> incluem valores a pagar a partes relacionadas e ao FIDC Fornecedor (nota 12), e são registrados a valor presente.</li>
+        <li><b>Antecipação de recebíveis</b>: a Havan cede recebíveis ao Havan FIDC; recebíveis cedidos saem do balanço, o que reduz o PMR calculado.</li>
+        <li><b>Controladora</b>: usados os valores da controladora (a partir de 2021 a Havan publica só controladora).</li>
+        <li><b>Simulação “tudo o mais constante”</b>: vendas, CMV, estoques e CGL não mudam. Na prática, alterar prazos pode mudar vendas, inadimplência e descontos.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FONTES ================= -->
+<section class="view" id="v-fontes" aria-labelledby="t-src">
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">Rastreabilidade</div>
+      <h1 class="page-title" id="t-src">Fontes dos dados</h1>
+      <p class="page-sub">Todos os valores marcados como “Dado real” podem ser conferidos nos documentos abaixo.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2 class="card-title">Demonstrações financeiras da Havan S.A.</h2><p class="card-sub">Disponíveis no site de Relações com Investidores: <a href="https://ri.havan.com.br/servicos-aos-investidores/resultados/">ri.havan.com.br/servicos-aos-investidores/resultados</a></p></div><span class="tag t-real">Dado real</span></div>
+    <div class="scroll"><table>
+      <thead><tr><th>Documento</th><th>Anos usados</th><th>Auditoria</th><th>Itens utilizados</th></tr></thead>
+      <tbody>
+        <tr><td>DF 2021 (emitida em 27/01/2022)</td><td>2019, 2020, 2021</td><td>Ernst &amp; Young</td><td>Balanço patrimonial, DRE, nota 6 (contas a receber), comentário de desempenho (indicadores de atividade)</td></tr>
+        <tr><td>DF 2022 (07/02/2023)</td><td>2022</td><td>Ernst &amp; Young</td><td>Balanço patrimonial, DRE, nota 6</td></tr>
+        <tr><td>DF 2023 (12/03/2024)</td><td>2023</td><td>Ernst &amp; Young</td><td>Balanço patrimonial, DRE, nota 6</td></tr>
+        <tr><td>DF 2024 (13/02/2025)</td><td>2024</td><td>Ernst &amp; Young</td><td>Balanço patrimonial, DRE, nota 6</td></tr>
+        <tr><td>DF 2025 (13/02/2026)</td><td>2025</td><td>Ernst &amp; Young</td><td>Balanço patrimonial, DRE, notas 6, 12 e 22</td></tr>
+      </tbody></table></div>
+    <p class="note" style="margin-top:12px">Valores em milhares de reais (R$ mil), da controladora. Cada relatório também traz o ano anterior; os valores comparativos foram conferidos e coincidem entre relatórios consecutivos.</p>
+  </div>
+  <div class="g-2e">
+    <div class="card">
+      <div class="card-head"><div><h2 class="card-title">Taxa Selic (opcional na comparação)</h2></div><span class="tag t-real">Dado real</span></div>
+      <p style="font-size:15px">15,00% a.a., mantida por unanimidade pelo Copom em 10/12/2025.</p>
+      <ul class="clean" style="margin-top:10px">
+        <li>Fonte oficial: Banco Central do Brasil — <a href="https://www.bcb.gov.br/controleinflacao/historicotaxasjuros">Histórico das taxas de juros</a></li>
+        <li>Notícia: Agência Brasil, 10/12/2025 — <a href="https://agenciabrasil.ebc.com.br/economia/noticia/2025-12/bc-mantem-juros-basicos-em-15-ao-ano-pela-quarta-vez-seguida">BC mantém juros básicos em 15% ao ano</a></li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2 class="card-title">Como diferenciamos os dados</h2></div></div>
+      <ul class="clean">
+        <li><span class="tag t-real">Dado real · DF Havan</span> valor copiado das demonstrações auditadas.</li>
+        <li><span class="tag t-calc">Calculado</span> resultado de fórmula aplicada sobre dados reais.</li>
+        <li><span class="tag t-edit">Dados editados</span> o usuário alterou algum valor real.</li>
+        <li><span class="tag t-sim">Simulação</span> cenário hipotético; não é dado observado.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+    </main>
+  </div>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+{
+/* ======================= DADOS REAIS (R$ mil, controladora, 31/12) ======================= */
+const HAVAN = {
+  2019:{rb:10532861,rl:7903514,cmv:5220807,ei:null,ef:1087028,cr:2573547,forn:2119831,ac:4034184,caixa:298336,aplic:0,outfin:6357,pc:3579820,emp:929882,div:4554,arr:130996,doc:'DF 2021',cgHavan:1639893,pmrHavan:87},
+  2020:{rb:10519971,rl:7958042,cmv:5270814,ei:1087028,ef:1155370,cr:2016634,forn:2479520,ac:5461251,caixa:1921793,aplic:0,outfin:27894,pc:4032228,emp:811053,div:6835,arr:156841,doc:'DF 2021',cgHavan:800060,pmrHavan:70},
+  2021:{rb:12579777,rl:9556115,cmv:6233499,ei:1155370,ef:1638343,cr:2271745,forn:2345647,ac:5355370,caixa:1290606,aplic:0,outfin:22465,pc:4016683,emp:687971,div:199214,arr:154954,doc:'DF 2021',cgHavan:1663680,pmrHavan:70,pmrvHavan:86},
+  2022:{rb:14250353,rl:10576852,cmv:6750978,ei:1638343,ef:1354949,cr:2540674,forn:2179676,ac:5144169,caixa:821195,aplic:255619,outfin:6123,pc:4291604,emp:1144669,div:16477,arr:218486,doc:'DF 2022',cgHavan:1797139,pmrHavan:67},
+  2023:{rb:12915151,rl:9319170,cmv:5578445,ei:1354949,ef:1258973,cr:1589428,forn:2415644,ac:4811502,caixa:210773,aplic:1700465,outfin:0,pc:3767470,emp:388027,div:3608,arr:210684,doc:'DF 2023',cgHavan:465337,pmrHavan:81},
+  2024:{rb:15795356,rl:11697862,cmv:6845022,ei:1258973,ef:1623073,cr:1621001,forn:2716573,ac:4827335,caixa:371209,aplic:1108306,outfin:0,pc:4276052,emp:324363,div:0,arr:223048,doc:'DF 2024',cgHavan:541196,pmrHavan:53},
+  2025:{rb:18340310,rl:13693224,cmv:8259786,ei:1623073,ef:1807333,cr:1907838,forn:3206505,ac:5224311,caixa:59164,aplic:1067154,outfin:0,pc:4649335,emp:1006,div:18308,arr:223623,doc:'DF 2025',cgHavan:520787,pmrHavan:47},
+};
+/* contas a receber não circulante (para conferir o "capital de giro" que a Havan publica) */
+const CRNC = {2019:99149,2020:107576,2021:99239,2022:81192,2023:32580,2024:13695,2025:12121};
+const YEARS = Object.keys(HAVAN).map(Number);
+
+/* ======================= CAMPOS ======================= */
+const GROUPS = [
+  {t:'Resultado do período (DRE)', s:'Demonstração do resultado do exercício', f:[
+    ['rl','Receita operacional líquida',true,'DRE · receita líquida (vendas do período)'],
+    ['cmv','Custo das mercadorias vendidas (CMV)',true,'DRE · informe o valor positivo'],
+    ['rb','Receita bruta',false,'Opcional · comentário de desempenho; só para referência'],
+  ]},
+  {t:'Saldos operacionais (balanço)', s:'Balanço patrimonial · saldos finais', f:[
+    ['ef','Estoque final',true,'Balanço do ano · nota 7'],
+    ['ei','Estoque inicial',false,'Balanço do ano anterior · necessário para calcular compras e PMP'],
+    ['cr','Contas a receber de clientes (circulante)',true,'Balanço · nota 6'],
+    ['forn','Fornecedores (contas a pagar)',true,'Balanço · nota 12'],
+  ]},
+  {t:'Ativo e passivo circulante', s:'Para CGL, NCG e Saldo de Tesouraria', f:[
+    ['ac','Total do ativo circulante',false,'Balanço'],
+    ['caixa','Caixa e equivalentes de caixa',false,'Ativo financeiro'],
+    ['aplic','Aplicações financeiras',false,'Ativo financeiro · use 0 se não houver'],
+    ['outfin','Outros ativos financeiros (derivativos)',false,'Ativo financeiro · use 0 se não houver'],
+    ['pc','Total do passivo circulante',false,'Balanço'],
+    ['emp','Empréstimos, financiamentos e debêntures (CP)',false,'Passivo financeiro'],
+    ['div','Dividendos a pagar',false,'Passivo financeiro · use 0 se não houver'],
+    ['arr','Passivo de arrendamentos (CP)',false,'Passivo financeiro · use 0 se não houver'],
+  ]},
+  {t:'Valores já conhecidos (opcional)', s:'Se preenchidos, substituem o cálculo automático', f:[
+    ['compras','Compras do período',false,'Se vazio: CMV + estoque final − estoque inicial'],
+    ['pmeI','Prazo médio de estocagem (dias)',false,'Se vazio: calculado'],
+    ['pmrI','Prazo médio de recebimento (dias)',false,'Se vazio: calculado'],
+    ['pmpI','Prazo médio de pagamento (dias)',false,'Se vazio: calculado'],
+  ]},
+];
+const DAYS_FIELDS = ['pmeI','pmrI','pmpI'];
+const LABEL = {}; GROUPS.forEach(g=>g.f.forEach(f=>LABEL[f[0]]=f[1]));
+
+/* ======================= ESTADO ======================= */
+const S = {base:2025, unit:'mil', inp:{}, edited:false, sim:{pmr:60, pmp:null}, selicOn:false, selic:15};
+
+/* ======================= FORMATAÇÃO ======================= */
+const nf0 = new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0});
+const nf1 = new Intl.NumberFormat('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+const nf2 = new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const ok = v => v!==null && v!==undefined && isFinite(v);
+const fD = v => ok(v) ? nf1.format(v)+' dias' : '—';
+const fK = v => ok(v) ? 'R$ '+nf0.format(v)+' mil' : '—';
+const fM = v => ok(v) ? 'R$ '+nf1.format(v/1000)+' mi' : '—';
+const sgn = (v,f) => ok(v) ? (v>0?'+':v<0?'−':'')+f(Math.abs(v)) : '—';
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function parseNum(str){
+  if(str===null||str===undefined) return null;
+  let s=String(str).trim().replace(/\s|R\$/g,'');
+  if(s==='') return null;
+  let neg=false; if(/^[-−(]/.test(s)){neg=true;s=s.replace(/[-−()]/g,'');}
+  if(s.includes(',')) s=s.replace(/\./g,'').replace(',','.');
+  else if(/^\d{1,3}(\.\d{3})+$/.test(s)) s=s.replace(/\./g,'');
+  const v=parseFloat(s); if(!isFinite(v)) return NaN;
+  return neg?-v:v;
+}
+const nf3 = new Intl.NumberFormat('pt-BR',{maximumFractionDigits:3});
+const fmtInput = (k,v) => !ok(v) ? '' : DAYS_FIELDS.includes(k) ? nf1.format(v) : S.unit==='mi' ? nf3.format(v/1000) : nf0.format(v);
+
+/* ======================= CÁLCULO ======================= */
+function need(o, keys){ return keys.filter(k=>!ok(o[k])).map(k=>LABEL[k]||k); }
+function calc(i){
+  const r = {miss:{}, src:{}};
+  // compras
+  if(ok(i.compras)){ r.compras=i.compras; r.src.compras='informado'; }
+  else { const m=need(i,['cmv','ef','ei']); if(m.length) r.miss.compras=m; else r.compras=i.cmv+i.ef-i.ei; }
+  // PME
+  if(ok(i.pmeI)){ r.pme=i.pmeI; r.src.pme='informado'; }
+  else { const m=need(i,['ef','cmv']); if(m.length||!i.cmv) r.miss.pme=m.length?m:['CMV diferente de zero']; else r.pme=i.ef/i.cmv*360; }
+  // PMR
+  if(ok(i.pmrI)){ r.pmr=i.pmrI; r.src.pmr='informado'; }
+  else { const m=need(i,['cr','rl']); if(m.length||!i.rl) r.miss.pmr=m.length?m:['receita diferente de zero']; else r.pmr=i.cr/i.rl*360; }
+  // PMP
+  if(ok(i.pmpI)){ r.pmp=i.pmpI; r.src.pmp='informado'; }
+  else if(!ok(i.forn)) r.miss.pmp=[LABEL.forn];
+  else if(!ok(r.compras)) r.miss.pmp=['Compras ('+r.miss.compras.join(', ')+')'];
+  else if(r.compras<=0) r.miss.pmp=['compras positivas'];
+  else r.pmp=i.forn/r.compras*360;
+  // ciclos
+  if(ok(r.pme)&&ok(r.pmr)) r.co=r.pme+r.pmr; else r.miss.co=[!ok(r.pme)?'PME':null,!ok(r.pmr)?'PMR':null].filter(Boolean);
+  if(ok(r.co)&&ok(r.pmp)) r.cf=r.co-r.pmp; else r.miss.cf=[!ok(r.co)?'ciclo operacional':null,!ok(r.pmp)?'PMP':null].filter(Boolean);
+  // capital de giro (CGL, NCG, ST)
+  const z = k => ok(i[k])?i[k]:0;
+  const mC=need(i,['ac','pc']);
+  if(mC.length) r.miss.cgl=mC; else r.cgl=i.ac-i.pc;
+  const mF=need(i,['ac','pc','caixa','emp']);
+  if(mF.length) r.miss.ncg=r.miss.st=mF;
+  else { r.acf=i.caixa+z('aplic')+z('outfin'); r.pcf=i.emp+z('div')+z('arr'); r.aco=i.ac-r.acf; r.pco=i.pc-r.pcf; r.ncg=r.aco-r.pco; r.st=r.acf-r.pcf; }
+  // vendas e compras diárias
+  if(ok(i.rl)) r.vd=i.rl/360;
+  if(ok(r.compras)) r.cd=r.compras/360;
+  r.crAt = ok(i.cr)?i.cr:(ok(r.vd)&&ok(r.pmr)?r.vd*r.pmr:null);
+  r.fornAt = ok(i.forn)?i.forn:(ok(r.cd)&&ok(r.pmp)?r.cd*r.pmp:null);
+  return r;
+}
+function simulate(c, pmrS, pmpS){
+  const s = {pme:c.pme, pmr:pmrS, pmp:ok(pmpS)?pmpS:c.pmp, miss:{}};
+  if(ok(s.pme)&&ok(s.pmr)) s.co=s.pme+s.pmr;
+  if(ok(s.co)&&ok(s.pmp)) s.cf=s.co-s.pmp;
+  // variação do contas a receber
+  if(ok(c.vd)&&ok(c.pmr)) s.dCR=c.vd*(s.pmr-c.pmr); else s.miss.dCR='receita líquida e PMR atual';
+  // variação de fornecedores
+  const dP = ok(c.pmp)?(s.pmp-c.pmp):0;
+  if(Math.abs(dP)<1e-9) s.dForn=0;
+  else if(ok(c.cd)) s.dForn=c.cd*dP; else s.miss.dForn='compras do período';
+  if(ok(s.dCR)&&ok(s.dForn)){
+    s.dNCG=s.dCR-s.dForn;
+    s.cr = ok(c.crAt)?c.crAt+s.dCR:null;
+    s.forn = ok(c.fornAt)?c.fornAt+s.dForn:null;
+    if(ok(c.ncg)){ s.ncg=c.ncg+s.dNCG; s.cgl=c.cgl; s.st=c.cgl-s.ncg; }
+  }
+  return s;
+}
+
+/* ======================= ALERTAS E INTERPRETAÇÃO ======================= */
+const ICON = {bad:'i-alert',warn:'i-alert',ok:'i-ok',info:'i-info'};
+const alertHTML = a => `<div class="alert a-${a.l}"><svg class="ic"><use href="#${ICON[a.l]}"/></svg><div><b>${a.t}</b><p>${a.p}</p></div></div>`;
+function alertsFor(c){
+  const A=[];
+  if(ok(c.st)&&c.st<0) A.push({l:'bad',t:'Saldo de Tesouraria negativo',p:`${fM(c.st)}. A NCG (${fM(c.ncg)}) é maior que o CGL (${fM(c.cgl)}): parte do giro é financiada por dívidas de curto prazo. Risco de liquidez se a situação persistir.`});
+  if(ok(c.cf)&&c.cf>0) A.push({l:c.cf>60?'bad':'warn',t:`Ciclo financeiro positivo: ${fD(c.cf)}`,p:`A empresa paga os fornecedores antes de receber dos clientes e precisa financiar esse intervalo${ok(c.vd)?`, cerca de ${fM(c.cf*c.vd)} em vendas`:''}.`});
+  if(ok(c.pmr)&&ok(c.pmp)&&c.pmr>c.pmp) A.push({l:'warn',t:'Recebe depois de pagar',p:`PMR (${fD(c.pmr)}) maior que o PMP (${fD(c.pmp)}): só o prazo dos clientes já supera o prazo obtido dos fornecedores.`});
+  if(ok(c.cf)&&c.cf<=0) A.push({l:'ok',t:'Ciclo financeiro negativo ou nulo',p:`Os fornecedores financiam toda a operação: o dinheiro das vendas entra ${fD(Math.abs(c.cf))} antes do pagamento das compras.`});
+  if(ok(c.st)&&c.st>=0) A.push({l:'ok',t:'Saldo de Tesouraria positivo',p:`${fM(c.st)} de folga: o CGL cobre a NCG e sobra liquidez aplicada.`});
+  const miss = ['pmp','cf','ncg'].filter(k=>c.miss[k]);
+  if(miss.length) A.push({l:'info',t:'Indicadores não calculados por falta de dados',p:miss.map(k=>`${({pmp:'PMP',cf:'Ciclo financeiro',ncg:'NCG e Saldo de Tesouraria'})[k]}: falta ${c.miss[k].join(', ')}`).join('. ')+'.'});
+  return A;
+}
+function interpFor(c){
+  const P=[];
+  if(ok(c.pme)) P.push(`<p><b>Estocagem:</b> a mercadoria fica, em média, <b>${fD(c.pme)}</b> em estoque antes de ser vendida.</p>`);
+  if(ok(c.pmr)) P.push(`<p><b>Recebimento:</b> após a venda, a empresa leva <b>${fD(c.pmr)}</b> para receber. Cada dia a mais de prazo ao cliente prende cerca de <b>${fM(c.vd)}</b> em contas a receber.</p>`);
+  if(ok(c.pmp)) P.push(`<p><b>Pagamento:</b> os fornecedores são pagos em <b>${fD(c.pmp)}</b>. Cada dia a mais negociado libera cerca de <b>${fM(c.cd)}</b> de caixa.</p>`);
+  if(ok(c.co)&&ok(c.cf)) P.push(`<p><b>Ciclos:</b> o ciclo operacional é de ${fD(c.co)}. Descontando o prazo dos fornecedores, o ciclo financeiro é de <b>${fD(c.cf)}</b>${c.cf>0?' — dias que a empresa precisa financiar com recursos próprios ou de bancos.':' — a empresa recebe antes de pagar, portanto a operação gera caixa.'}</p>`);
+  if(ok(c.ncg)) P.push(`<p><b>Capital de giro:</b> a NCG é de <b>${fM(c.ncg)}</b>${c.ncg<0?' (negativa: a operação é fonte de recursos, coerente com o ciclo financeiro curto ou negativo)':' (a operação consome recursos)'}. O CGL é de ${fM(c.cgl)} e o Saldo de Tesouraria fica em <b>${fM(c.st)}</b> (CGL − NCG).</p>`);
+  if(!P.length) P.push('<p>Preencha os dados da empresa e clique em Calcular.</p>');
+  return P.join('');
+}
+
+/* ======================= COMPONENTES ======================= */
+function kpi(label, value, opts={}){
+  const {note='', miss=null, cls='', tag='t-calc', tagTxt='Calculado'} = opts;
+  return `<div class="kpi ${cls}"><div class="kpi-top"><span class="kpi-label">${label}</span>${tag==='t-edit'?`<span class="tag ${tag}">${tagTxt}</span>`:''}</div>
+  ${miss?`<div class="kpi-value" style="color:var(--text-3)">—</div><div class="kpi-miss">Falta: ${esc(miss.join(', '))}</div>`:`<div class="kpi-value tnum">${value}</div>${note?`<div class="kpi-note">${note}</div>`:''}`}</div>`;
+}
+const srcTag = k => S.calc.src[k]==='informado' ? ['t-edit','Informado'] : ['t-calc','Calculado'];
+
+/* régua do ciclo (SVG) */
+function drawCycle(el, c, maxDays){
+  const W=el.clientWidth, H=el.clientHeight; if(!W) return;
+  if(!ok(c.pme)||!ok(c.pmr)){ el.innerHTML=`<svg><text x="0" y="40" font-size="14" fill="#64748B">Faltam PME e PMR para desenhar o ciclo.</text></svg>`; return; }
+  const small=W<520, padL=small?0:150, padR=16, top=20;
+  const co=c.pme+c.pmr, pmp=c.pmp;
+  const max=(maxDays||Math.max(co, ok(pmp)?pmp:0))*1.06;
+  const x=d=>padL+(W-padL-padR)*d/max, bh=small?22:26;
+  const rows = small?[34,92]:[40,104];
+  const lbl=(y,t)=> small?`<text x="0" y="${y-8}" font-size="12.5" font-weight="600" fill="#5B6779">${t}</text>`:`<text x="0" y="${y+bh/2+5}" font-size="13.5" font-weight="600" fill="#5B6779">${t}</text>`;
+  const seg=(x0,x1,y,col,t)=>{const w=Math.max(0,x1-x0);const inside=w>(small?54:84);return `<rect x="${x0}" y="${y}" width="${w}" height="${bh}" rx="5" fill="${col}"/>`+(inside?`<text x="${x0+w/2}" y="${y+bh/2+5}" text-anchor="middle" font-size="13" font-weight="700" fill="${col==='#2F6DB5'?'#fff':'#16232E'}">${t}</text>`:'');};
+  let s='';
+  // grade de dias
+  const step = max>240?60:max>120?30:15;
+  for(let d=0; d<=max; d+=step){ s+=`<line x1="${x(d)}" x2="${x(d)}" y1="${top-6}" y2="${H-26}" stroke="#EEF1F5"/>`+`<text x="${x(d)}" y="${H-8}" text-anchor="middle" font-size="12" fill="#64748B">${d}</text>`; }
+  // faixa do ciclo financeiro
+  if(ok(pmp)){
+    const a=Math.min(pmp,co), b=Math.max(pmp,co), pos=co>pmp;
+    s+=`<rect x="${x(a)}" y="${top-6}" width="${x(b)-x(a)}" height="${rows[1]+bh+6-(top-6)}" fill="${pos?'#F4D3CF':'#CDEBD9'}" opacity=".55"/>`;
+    const mid=(x(a)+x(b))/2, cfTxt=`Ciclo financeiro ${nf1.format(co-pmp)} d`;
+    const tx = Math.min(Math.max(mid, 70+padL*0), W-80);
+    s+=`<text x="${tx}" y="${rows[1]+bh+(small?20:22)}" text-anchor="middle" font-size="13" font-weight="700" fill="${pos?'#C84B42':'#21875A'}">${cfTxt}</text>`;
+  }
+  s+=lbl(rows[0],'Ciclo operacional');
+  s+=seg(x(0),x(c.pme)-1,rows[0],'#2F6DB5','PME '+nf1.format(c.pme)+' d');
+  s+=seg(x(c.pme)+1,x(co),rows[0],'#C07A12','PMR '+nf1.format(c.pmr)+' d');
+  s+=`<text x="${Math.min(x(co)+6,W-4)}" y="${rows[0]-6}" text-anchor="${x(co)>W-120?'end':'start'}" font-size="12.5" font-weight="700" fill="#202938">${nf1.format(co)} dias</text>`;
+  s+=lbl(rows[1],'Pagamento');
+  if(ok(pmp)) s+=seg(x(0),x(pmp),rows[1],'#2E9E8A','PMP '+nf1.format(pmp)+' d');
+  else s+=`<text x="${x(0)}" y="${rows[1]+bh/2+5}" font-size="13" fill="#996000">PMP indisponível: ${esc((S.calc.miss.pmp||[]).join(', '))}</text>`;
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${s}</svg>`;
+}
+
+/* ======================= TELAS ======================= */
+function renderPainel(){
+  const c=S.calc, i=S.inp, yr=S.base;
+  document.getElementById('pEyebrow').textContent = (yr?`Havan S.A. · exercício de ${yr}`:'Outra empresa')+' · valores em R$ mil';
+  let h='Preencha os dados para gerar o diagnóstico.';
+  if(ok(c.cf)) h = c.cf<=0 ? `Ciclo financeiro de ${fD(c.cf)}: a empresa recebe dos clientes antes de pagar os fornecedores${ok(c.st)?`, e o Saldo de Tesouraria é ${c.st>=0?'positivo':'negativo'} (${fM(c.st)})`:''}.` : `A empresa precisa financiar ${fD(c.cf)} do seu ciclo${ok(c.st)?`; Saldo de Tesouraria ${c.st>=0?'positivo':'negativo'} em ${fM(c.st)}`:''}.`;
+  else if(ok(c.co)) h=`Ciclo operacional de ${fD(c.co)}. Ciclo financeiro indisponível: falta ${c.miss.pmp.join(', ')}.`;
+  document.getElementById('pHeadline').textContent=h;
+  const t=(k)=>{const [a,b]=srcTag(k);return {tag:a,tagTxt:b};};
+  document.getElementById('kpiCycle').innerHTML =
+    kpi('PME · estocagem', fD(c.pme), {...t('pme'), miss:c.miss.pme, note:'Estoque ÷ CMV × 360'}) +
+    kpi('PMR · recebimento', fD(c.pmr), {...t('pmr'), miss:c.miss.pmr, note:'Contas a receber ÷ Receita líquida × 360'}) +
+    kpi('PMP · pagamento', fD(c.pmp), {...t('pmp'), miss:c.miss.pmp, note:'Fornecedores ÷ Compras × 360'}) +
+    kpi('Ciclo financeiro', fD(c.cf), {miss:c.miss.cf, cls:ok(c.cf)?(c.cf>0?'is-bad':'is-ok'):'', note:ok(c.co)?`Ciclo operacional: ${fD(c.co)}`:''});
+  document.getElementById('kpiGiro').innerHTML =
+    kpi('CGL · capital de giro líquido', fM(c.cgl), {miss:c.miss.cgl, note:'Ativo circulante − Passivo circulante'}) +
+    kpi('NCG · necessidade de capital de giro', fM(c.ncg), {miss:c.miss.ncg, note:'Ativo op. − Passivo op.'}) +
+    kpi('Saldo de Tesouraria', fM(c.st), {miss:c.miss.st, cls:ok(c.st)?(c.st<0?'is-bad':'is-ok'):'', note:'Ativo fin. − Passivo fin. = CGL − NCG'}) +
+    kpi('Compras do período', fM(c.compras), {...t('compras'), miss:c.miss.compras, note:'CMV + Estoque final − Estoque inicial'});
+  document.getElementById('pInterp').innerHTML=interpFor(c);
+  document.getElementById('pAlerts').innerHTML=alertsFor(c).map(alertHTML).join('');
+  // verificação
+  const vc=document.getElementById('verifCard');
+  if(yr && !S.edited){
+    vc.hidden=false; const d=HAVAN[yr];
+    const nosso=i.cr+CRNC[yr]+i.ef-i.forn;
+    const prova = ok(c.ncg)? c.cgl-(c.ncg+c.st) : null;
+    document.getElementById('verifBody').innerHTML=`<div class="verif">
+      <div><small>“Capital de giro” publicado pela Havan (estoques + contas a receber total − fornecedores)</small><b class="tnum">${fK(d.cgHavan)}</b><small>Nosso cálculo pelo mesmo critério: <b>${fK(nosso)}</b> ${Math.abs(nosso-d.cgHavan)<1?'<span class="badge b-ok">idêntico</span>':`<span class="badge b-warn">diferença ${fK(nosso-d.cgHavan)}</span>`}</small></div>
+      <div><small>PMR informado pela Havan (nota 6 da DF)</small><b class="tnum">${d.pmrHavan} dias</b><small>Nosso PMR (receita líquida, 360 d, saldo final): <b>${fD(c.pmr)}</b>. Diferença explicada pelo método de cálculo da empresa.${d.pmrvHavan?` No comentário de desempenho de ${yr}, a Havan publica PMRV de ${d.pmrvHavan} dias.`:''}</small></div>
+      <div><small>Prova matemática do capital de giro</small><b class="tnum">CGL = NCG + ST</b><small>${ok(prova)?`${fK(c.cgl)} = ${fK(c.ncg)} + ${fK(c.st)} ${Math.abs(prova)<1?'<span class="badge b-ok">confere</span>':'<span class="badge b-bad">não confere</span>'}`:'Faltam dados do circulante.'}</small></div>
+    </div>`;
+  } else vc.hidden=true;
+  drawCycle(document.getElementById('cycMain'), c);
+}
+
+function renderForm(){
+  const i=S.inp, real = S.base?HAVAN[S.base]:null;
+  document.getElementById('formCards').innerHTML = GROUPS.map(g=>`<div class="card"><div class="card-head"><div><h2 class="card-title">${g.t}</h2><p class="card-sub">${g.s}</p></div></div><div class="g-f">${
+    g.f.map(([k,l,req,h])=>{
+      const realV = real && k in real ? real[k] : undefined;
+      const edited = real && realV!==undefined && !(realV===null&&!ok(i[k])) && i[k]!==realV;
+      const unit = DAYS_FIELDS.includes(k)?'dias':(S.unit==='mi'?'R$ mi':'R$ mil');
+      return `<div class="field"><label class="label" for="f-${k}">${l}${req?' *':''}</label><div class="unit-wrap"><span class="unit">${unit}</span><input class="input${edited?' is-edited':''}" id="f-${k}" data-k="${k}" inputmode="decimal" value="${esc(fmtInput(k,i[k]))}" placeholder="vazio"></div><span class="hint">${h}${real&&realV!==undefined?` · ${real.doc}`:''}</span></div>`;
+    }).join('')}</div></div>`).join('');
+}
+function renderUnit(){
+  document.querySelectorAll('#unitSel button').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.u===S.unit)));
+  const mi=S.unit==='mi';
+  document.getElementById('dEyebrow').textContent='Entrada de dados · valores em '+(mi?'R$ milhões':'R$ mil');
+  const h=document.getElementById('dataHint'); if(h) h.firstChild.textContent = mi?'Digite os valores como aparecem no relatório (ex.: 1.907,838 para R$ 1,9 bilhão). ':'Digite os valores como aparecem no relatório (ex.: 1.907.838). ';
+}
+function readForm(){
+  let bad=false;
+  document.querySelectorAll('#formCards input[data-k]').forEach(el=>{
+    const v=parseNum(el.value);
+    if(Number.isNaN(v)){ el.setAttribute('aria-invalid','true'); bad=true; return; }
+    el.removeAttribute('aria-invalid');
+    S.inp[el.dataset.k] = (ok(v) && S.unit==='mi' && !DAYS_FIELDS.includes(el.dataset.k)) ? Math.round(v*1000*1000)/1000 : v;
+  });
+  if(S.base){ const r=HAVAN[S.base]; S.edited=Object.keys(S.inp).some(k=> k in r ? (S.inp[k]!==r[k] && !(r[k]===null&&!ok(S.inp[k]))) : ok(S.inp[k])); }
+  return !bad;
+}
+
+function renderSim(){
+  const c=S.calc;
+  document.getElementById('simBase').textContent = `Prazos atuais: PMR ${fD(c.pmr)} · PMP ${fD(c.pmp)} · PME ${fD(c.pme)}`;
+  const opts=[[0,'À vista'],[15,'15 dias'],[30,'30 dias'],[45,'45 dias'],[60,'60 dias']];
+  document.getElementById('pmrChips').innerHTML=opts.map(([d,t])=>`<button type="button" class="chip" data-d="${d}" aria-pressed="${S.sim.pmr===d}">${t}</button>`).join('');
+  document.getElementById('pmrCustom').value = opts.some(o=>o[0]===S.sim.pmr)?'':nf1.format(S.sim.pmr);
+  document.getElementById('pmpSim').value = ok(S.sim.pmp)?nf1.format(S.sim.pmp):ok(c.pmp)?nf1.format(c.pmp):'';
+  document.getElementById('pmpSim').disabled = !ok(c.pmp);
+  const s=simulate(c,S.sim.pmr,S.sim.pmp); S.simR=s;
+  const box=[];
+  if(!ok(c.pmr)) box.push({l:'info',t:'Simulação indisponível',p:'Falta calcular o PMR atual (contas a receber e receita líquida).'});
+  else {
+    box.push({l:ok(s.cf)?(s.cf>c.cf?'bad':s.cf<c.cf?'ok':'info'):'info',t:`Ciclo financeiro: ${fD(c.cf)} → ${fD(s.cf)}`,p:ok(s.cf)?`Variação de ${sgn(s.cf-c.cf,v=>nf1.format(v)+' dias')}.`:'Ciclo financeiro indisponível (falta PMP).'});
+    if(ok(s.dNCG)) box.push({l:s.dNCG>0?'bad':s.dNCG<0?'ok':'info',t:`NCG: ${s.dNCG>0?'aumenta':'diminui'} ${fM(Math.abs(s.dNCG))}`,p:`Contas a receber ${sgn(s.dCR,fM)}${s.dForn?` · Fornecedores ${sgn(s.dForn,fM)}`:''}.${ok(s.ncg)?` NCG simulada: ${fM(s.ncg)}.`:''}`});
+    else box.push({l:'info',t:'Variação da NCG indisponível',p:'Falta: '+Object.values(s.miss).join(', ')+'.'});
+    if(ok(s.st)) box.push({l:s.st<0?'bad':'ok',t:`Saldo de Tesouraria: ${fM(c.st)} → ${fM(s.st)}`,p:s.st<0?'Fica negativo: a empresa passaria a depender de empréstimos de curto prazo para financiar o giro.':'Continua positivo: o CGL ainda cobre a necessidade de giro.'});
+  }
+  document.getElementById('simKpis').innerHTML=box.map(alertHTML).join('');
+  const maxD=Math.max(c.co||0,s.co||0,c.pmp||0,s.pmp||0);
+  drawCycle(document.getElementById('cycA'),c,maxD);
+  drawCycle(document.getElementById('cycS'),s,maxD);
+  // tabela de políticas
+  document.getElementById('polSub').textContent = `PMP considerado: ${fD(s.pmp)}. Clique numa linha para simulá-la.`;
+  const rows=[0,15,30,45,60].map(d=>{const p=simulate(c,d,S.sim.pmp);return `<tr data-d="${d}" style="cursor:pointer" class="${S.sim.pmr===d?'hl':''}"><td><b>${d===0?'À vista':d+' dias'}</b></td><td class="n">${fD(p.co)}</td><td class="n">${fD(p.cf)}</td><td class="n ${p.dNCG>0?'up':p.dNCG<0?'down':''}">${sgn(p.dNCG,fM)}</td><td class="n">${fM(p.ncg)}</td><td class="n ${p.st<0?'up':''}">${fM(p.st)}</td><td>${!ok(p.st)?'—':p.st<0?'<span class="badge b-bad">Tesouraria negativa</span>':ok(p.cf)&&p.cf>0?'<span class="badge b-warn">Precisa financiar</span>':'<span class="badge b-ok">Folga</span>'}</td></tr>`;}).join('');
+  document.getElementById('polTable').innerHTML=`<thead><tr><th>Recebimento</th><th class="n">Ciclo operacional</th><th class="n">Ciclo financeiro</th><th class="n">Variação da NCG</th><th class="n">NCG</th><th class="n">Saldo de Tesouraria</th><th>Situação</th></tr></thead><tbody><tr class="muted"><td class="muted">Atual (${fD(c.pmr)})</td><td class="n muted">${fD(c.co)}</td><td class="n muted">${fD(c.cf)}</td><td class="n muted">—</td><td class="n muted">${fM(c.ncg)}</td><td class="n muted">${fM(c.st)}</td><td class="muted">Cenário atual</td></tr>${rows}</tbody>`;
+}
+
+function renderCmp(){
+  const c=S.calc, s=S.simR||simulate(c,S.sim.pmr,S.sim.pmp);
+  document.getElementById('cmpSub').textContent = `Atual: ${S.base?'Havan '+S.base:'dados informados'} · Simulado: recebimento em ${S.sim.pmr===0?'à vista':fD(S.sim.pmr)} e pagamento em ${fD(s.pmp)}.`;
+  // better: 1 = menor é melhor, -1 = maior é melhor, 0 = neutro
+  const L=[
+    ['PME (estocagem)','pme',fD,1,'d'],['PMR (recebimento)','pmr',fD,1,'d'],['PMP (pagamento)','pmp',fD,-1,'d'],
+    ['Ciclo operacional','co',fD,1,'d'],['Ciclo financeiro','cf',fD,1,'d'],
+    ['Contas a receber','crX',fM,0,'m'],['Fornecedores','fornX',fM,0,'m'],
+    ['NCG','ncg',fM,1,'m'],['CGL','cgl',fM,-1,'m'],['Saldo de Tesouraria','st',fM,-1,'m'],
+  ];
+  const A={...c,crX:c.crAt,fornX:c.fornAt}, B={...s,crX:s.cr,fornX:s.forn};
+  const rows=L.map(([n,k,f,b,u])=>{
+    const a=A[k], v=B[k], d=ok(a)&&ok(v)?v-a:null;
+    let badge='<span class="badge b-neu">igual</span>';
+    if(ok(d)&&Math.abs(d)>0.05){ if(b===0) badge='<span class="badge b-neu">'+(d>0?'aumenta':'diminui')+'</span>'; else badge=(d*b<0)?'<span class="badge b-ok"><svg class="ic"><use href="#i-ok"/></svg>melhora</span>':'<span class="badge b-bad"><svg class="ic"><use href="#i-alert"/></svg>piora</span>'; }
+    if(!ok(d)) badge='<span class="miss">dados insuficientes</span>';
+    const fd = u==='d'?(x=>nf1.format(x)+' dias'):fM;
+    return `<tr><td><b>${n}</b></td><td class="n">${f(a)}</td><td class="n">${f(v)}</td><td class="n">${ok(d)?sgn(d,fd):'—'}</td><td>${badge}</td></tr>`;
+  }).join('');
+  document.getElementById('cmpTable').innerHTML=`<thead><tr><th>Indicador</th><th class="n">Atual <span class="tag t-real">real</span></th><th class="n">Simulado <span class="tag t-sim">simulação</span></th><th class="n">Diferença</th><th>Avaliação</th></tr></thead><tbody>${rows}</tbody>`;
+  // interpretação
+  const P=[];
+  if(ok(s.dCR)){
+    const dd=s.pmr-c.pmr;
+    P.push(`<p>Mudar o recebimento de <b>${fD(c.pmr)}</b> para <b>${S.sim.pmr===0?'à vista':fD(s.pmr)}</b> ${dd>0?'aumenta':'reduz'} o ciclo financeiro em ${nf1.format(Math.abs(dd))} dias. Como cada dia de prazo equivale a ${fM(c.vd)} de vendas, o contas a receber ${s.dCR>0?'sobe':'cai'} ${fM(Math.abs(s.dCR))}.</p>`);
+  }
+  if(ok(s.dForn)&&s.dForn!==0) P.push(`<p>O novo prazo com fornecedores (${fD(s.pmp)} contra ${fD(c.pmp)}) ${s.dForn>0?'aumenta':'reduz'} o saldo de fornecedores em ${fM(Math.abs(s.dForn))}. Esse valor ${s.dForn>0?'financia':'deixa de financiar'} a operação.</p>`);
+  if(ok(s.dNCG)) P.push(`<p>Resultado: a NCG ${s.dNCG>0?'aumenta':'diminui'} <b>${fM(Math.abs(s.dNCG))}</b>. ${s.dNCG>0?'Esse dinheiro fica “preso” na operação e precisa vir do caixa ou de empréstimos.':'Esse valor é liberado para o caixa.'}</p>`);
+  if(ok(s.st)) P.push(`<p>Com o CGL constante (${fM(c.cgl)}), o Saldo de Tesouraria passa de ${fM(c.st)} para <b>${fM(s.st)}</b>${s.st<0&&c.st>=0?', tornando-se negativo: sinal de dependência de crédito de curto prazo.':s.st<0?', permanecendo negativo.':'.'}</p>`);
+  P.push('<p class="note">Premissa: vendas, CMV, estoques e CGL constantes. Na prática, prazos maiores podem aumentar as vendas e a inadimplência; prazos menores podem exigir descontos.</p>');
+  document.getElementById('cmpInterp').innerHTML=P.join('');
+  // Selic
+  const on=S.selicOn; document.getElementById('selicBox').hidden=!on;
+  if(on){
+    const r=S.selic; let o;
+    if(!ok(r)) o=alertHTML({l:'info',t:'Informe a taxa',p:'Digite uma taxa anual válida, por exemplo 15,00.'});
+    else if(!ok(s.dNCG)) o=alertHTML({l:'info',t:'Custo indisponível',p:'Falta calcular a variação da NCG.'});
+    else { const v=s.dNCG*r/100;
+      o = s.dNCG>0 ? alertHTML({l:'bad',t:`Custo financeiro anual estimado: ${fM(v)}`,p:`Variação da NCG (${fM(s.dNCG)}) × ${nf2.format(r)}% a.a. É quanto custaria, por ano, financiar o capital de giro adicional à taxa informada.`})
+        : s.dNCG<0 ? alertHTML({l:'ok',t:`Recursos liberados renderiam ${fM(Math.abs(v))} por ano`,p:`Redução da NCG (${fM(Math.abs(s.dNCG))}) × ${nf2.format(r)}% a.a. Ganho estimado se o valor fosse aplicado ou usado para reduzir dívidas. Não considera eventuais descontos concedidos para receber antes.`})
+        : alertHTML({l:'info',t:'Sem custo adicional',p:'A NCG não muda neste cenário.'});
+    }
+    document.getElementById('selicOut').innerHTML=o;
+  }
+  const al=[];
+  if(ok(s.st)&&s.st<0&&ok(c.st)&&c.st>=0) al.push({l:'bad',t:'Saldo de Tesouraria passa a ser negativo',p:`De ${fM(c.st)} para ${fM(s.st)}. A política simulada criaria dependência de empréstimos de curto prazo.`});
+  else if(ok(s.st)&&s.st<0) al.push({l:'bad',t:'Saldo de Tesouraria segue negativo',p:fM(s.st)+'.'});
+  if(ok(s.cf)&&s.cf>0&&!(ok(c.cf)&&c.cf>0)) al.push({l:'warn',t:'Ciclo financeiro deixa de ser negativo',p:`Passa a ${fD(s.cf)}: a empresa precisará financiar esses dias.`});
+  if(ok(s.cf)&&ok(c.cf)&&s.cf<c.cf) al.push({l:'ok',t:'Ciclo financeiro menor',p:`Redução de ${nf1.format(c.cf-s.cf)} dias; menos capital de giro necessário.`});
+  if(ok(s.dNCG)&&s.dNCG>0&&ok(c.st)&&s.dNCG>c.st*0.5&&c.st>0) al.push({l:'warn',t:'Consome boa parte da folga de caixa',p:`O aumento da NCG equivale a ${nf0.format(s.dNCG/c.st*100)}% do Saldo de Tesouraria atual.`});
+  if(!al.length) al.push({l:'info',t:'Sem alertas relevantes',p:'O cenário simulado não indica dificuldade de caixa adicional.'});
+  document.getElementById('cmpAlerts').innerHTML=al.map(alertHTML).join('');
+}
+
+/* histórico */
+let H=[];
+function renderHist(){
+  H=YEARS.map(y=>({y,...calc({...HAVAN[y]})}));
+  const last=H[H.length-1], first=H[0];
+  document.getElementById('hHeadline').textContent=`O PMR caiu de ${fD(first.pmr)} (${first.y}) para ${fD(last.pmr)} (${last.y}) e o ciclo financeiro chegou a ${fD(last.cf)}: a Havan passou a receber antes de pagar.`;
+  document.getElementById('histTable').innerHTML=`<thead><tr><th>Ano</th><th class="n">PME</th><th class="n">PMR</th><th class="n">PMP</th><th class="n">Ciclo oper.</th><th class="n">Ciclo fin.</th><th class="n">CGL</th><th class="n">NCG</th><th class="n">Saldo Tes.</th></tr></thead><tbody>${
+    H.map(r=>`<tr data-y="${r.y}" style="cursor:pointer" class="${r.y===S.base?'hl':''}"><td><b>${r.y}</b></td><td class="n">${fD(r.pme)}</td><td class="n">${fD(r.pmr)}</td><td class="n">${ok(r.pmp)?fD(r.pmp):'<span class="miss">sem estoque inicial</span>'}</td><td class="n">${fD(r.co)}</td><td class="n">${ok(r.cf)?fD(r.cf):'—'}</td><td class="n">${fM(r.cgl)}</td><td class="n">${fM(r.ncg)}</td><td class="n ${r.st<0?'up':''}">${fM(r.st)}</td></tr>`).join('')
+  }</tbody>`;
+  const al=H.map((r,ix)=>{
+    const p=H[ix-1]; let t='';
+    if(p&&ok(p.ncg)) t=` NCG ${r.ncg>p.ncg?'subiu':'caiu'} ${fM(Math.abs(r.ncg-p.ncg))} e CGL ${r.cgl>p.cgl?'subiu':'caiu'} ${fM(Math.abs(r.cgl-p.cgl))} em relação a ${p.y}.`;
+    if(r.st<0) return {l:'bad',t:`${r.y}: saldo de tesouraria negativo (NCG > CGL)`,p:`Saldo de Tesouraria ${fM(r.st)}: a NCG de ${fM(r.ncg)} supera o CGL de ${fM(r.cgl)}.`+t};
+    if(r.ncg<0) return {l:'ok',t:`${r.y}: NCG negativa`,p:`A operação gera recursos (${fM(r.ncg)}); Saldo de Tesouraria ${fM(r.st)}.`+t};
+    return {l:'info',t:`${r.y}: NCG coberta pelo CGL`,p:`Saldo de Tesouraria ${fM(r.st)}.`+t};
+  });
+  document.getElementById('histAlerts').innerHTML=al.map(alertHTML).join('');
+  drawLines(); drawBars();
+}
+const tip=document.getElementById('tip');
+function showTip(ev,html){ tip.innerHTML=html; tip.style.display='block'; const r=tip.getBoundingClientRect(); let x=ev.clientX+14, y=ev.clientY+14; if(x+r.width>innerWidth-8) x=ev.clientX-r.width-14; if(y+r.height>innerHeight-8) y=ev.clientY-r.height-14; tip.style.left=(x+scrollX)+'px'; tip.style.top=(y+scrollY)+'px'; }
+const hideTip=()=>tip.style.display='none';
+function drawLines(){
+  const el=document.getElementById('chLines'), W=el.clientWidth, Ht=el.clientHeight; if(!W||!H.length) return;
+  const small=W<520, pl=small?34:44, pr=small?30:64, pt=14, pb=30;
+  const ser=[['pme','#2F6DB5','PME'],['pmr','#C07A12','PMR'],['pmp','#2E9E8A','PMP'],['cf','#202938','Ciclo fin.']];
+  const vals=H.flatMap(r=>ser.map(s=>r[s[0]]).filter(ok));
+  const mn=Math.min(0,...vals), mx=Math.max(...vals);
+  const lo=Math.floor(mn/30)*30, hi=Math.ceil(mx/30)*30;
+  const x=ix=>pl+(W-pl-pr)*ix/(H.length-1), y=v=>pt+(Ht-pt-pb)*(hi-v)/(hi-lo);
+  let s='';
+  for(let v=lo; v<=hi; v+=30){ s+=`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="${v===0?'#B4BCC8':'#EEF1F5'}"/><text x="${pl-8}" y="${y(v)+4}" text-anchor="end" font-size="12" fill="#64748B">${v}</text>`; }
+  H.forEach((r,ix)=>{ s+=`<text x="${x(ix)}" y="${Ht-8}" text-anchor="middle" font-size="12" fill="#64748B">${small?String(r.y).slice(2):r.y}</text>`; });
+  ser.forEach(([k,col,n])=>{
+    let d='', pen=false;
+    H.forEach((r,ix)=>{ if(ok(r[k])){ d+=(pen?'L':'M')+x(ix)+' '+y(r[k]); pen=true;} else pen=false; });
+    s+=`<path d="${d}" fill="none" stroke="${col}" stroke-width="2" ${k==='cf'?'stroke-dasharray="6 5"':''} stroke-linejoin="round"/>`;
+    H.forEach((r,ix)=>{ if(ok(r[k])) s+=`<circle cx="${x(ix)}" cy="${y(r[k])}" r="4" fill="${col}" stroke="#fff" stroke-width="2"/>`; });
+    const li=H.length-1; if(!small&&ok(H[li][k])) s+=`<text x="${x(li)+8}" y="${y(H[li][k])+4}" font-size="12" font-weight="700" fill="#202938">${n}</text>`;
+  });
+  s+=`<line id="xh" x1="0" x2="0" y1="${pt}" y2="${Ht-pb}" stroke="#94A0B2" stroke-dasharray="3 3" visibility="hidden"/>`;
+  H.forEach((r,ix)=>{ const w=(W-pl-pr)/(H.length-1); s+=`<rect data-ix="${ix}" x="${x(ix)-w/2}" y="${pt}" width="${w}" height="${Ht-pt-pb}" fill="transparent"/>`; });
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${Ht}">${s}</svg>`;
+  const xh=el.querySelector('#xh');
+  el.querySelectorAll('rect[data-ix]').forEach(rc=>{
+    rc.addEventListener('mousemove',ev=>{const r=H[+rc.dataset.ix]; xh.setAttribute('x1',x(+rc.dataset.ix)); xh.setAttribute('x2',x(+rc.dataset.ix)); xh.setAttribute('visibility','visible');
+      showTip(ev,`<b>${r.y}</b><br>`+ser.map(([k,col,n])=>`<span style="background:${col}"></span>${n}: ${ok(r[k])?nf1.format(r[k])+' dias':'sem dado'}`).join('<br>'));});
+    rc.addEventListener('mouseleave',()=>{hideTip();xh.setAttribute('visibility','hidden');});
+  });
+}
+function drawBars(){
+  const el=document.getElementById('chBars'), W=el.clientWidth, Ht=el.clientHeight; if(!W||!H.length) return;
+  const small=W<520, pl=small?40:52, pr=10, pt=14, pb=30;
+  const ser=[['cgl','#2F6DB5','CGL'],['ncg','#C07A12','NCG'],['st','#2E9E8A','Saldo de Tesouraria']];
+  const vals=H.flatMap(r=>ser.map(s=>r[s[0]]/1000));
+  const lo=Math.floor(Math.min(0,...vals)/500)*500, hi=Math.ceil(Math.max(...vals)/500)*500;
+  const y=v=>pt+(Ht-pt-pb)*(hi-v)/(hi-lo), gw=(W-pl-pr)/H.length, bw=Math.max(4,Math.min(22,(gw-14)/3-2));
+  let s='';
+  for(let v=lo; v<=hi; v+=500){ s+=`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="${v===0?'#94A0B2':'#EEF1F5'}"/><text x="${pl-8}" y="${y(v)+4}" text-anchor="end" font-size="12" fill="#64748B">${nf0.format(v)}</text>`; }
+  H.forEach((r,ix)=>{
+    const gx=pl+gw*ix+gw/2-(bw*3+4)/2;
+    ser.forEach(([k,col],j)=>{ const v=r[k]/1000, x0=gx+j*(bw+2), y0=Math.min(y(v),y(0)), h=Math.abs(y(v)-y(0));
+      s+=`<rect x="${x0}" y="${y0}" width="${bw}" height="${Math.max(1,h)}" rx="3" fill="${col}"/>`; });
+    s+=`<text x="${pl+gw*ix+gw/2}" y="${Ht-8}" text-anchor="middle" font-size="12" fill="#64748B">${small?String(r.y).slice(2):r.y}</text>`;
+    s+=`<rect data-ix="${ix}" x="${pl+gw*ix}" y="${pt}" width="${gw}" height="${Ht-pt-pb}" fill="transparent"/>`;
+  });
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${Ht}">${s}</svg>`;
+  el.querySelectorAll('rect[data-ix]').forEach(rc=>{
+    rc.addEventListener('mousemove',ev=>{const r=H[+rc.dataset.ix]; showTip(ev,`<b>${r.y}</b><br>`+ser.map(([k,col,n])=>`<span style="background:${col}"></span>${n}: ${fM(r[k])}`).join('<br>'));});
+    rc.addEventListener('mouseleave',hideTip);
+  });
+}
+
+/* ======================= RELATÓRIO ANUAL ======================= */
+let RY=null;
+const pct=(a,b)=>ok(a)&&ok(b)&&b!==0?(a/b-1)*100:null;
+const fP=v=>ok(v)?(v>0?'+':v<0?'−':'')+nf1.format(Math.abs(v))+'%':'—';
+const fN=v=>v<0?'(−'+nf0.format(-v)+')':nf0.format(v);
+function memoria(y,d,c,dp){
+  const L=[];
+  const m=(n,e)=>`<div><span>${n}</span><code>${e}</code></div>`;
+  L.push(m('PME',`${fN(d.ef)} ÷ ${fN(d.cmv)} × 360 = ${fD(c.pme)}`));
+  L.push(m('PMR',`${fN(d.cr)} ÷ ${fN(d.rl)} × 360 = ${fD(c.pmr)}`));
+  L.push(ok(c.compras)?m('Compras',`${fN(d.cmv)} + ${fN(d.ef)} − ${fN(d.ei)} = R$ ${fN(c.compras)} mil`):m('Compras',`não calculadas: falta o estoque de 31/12/${y-1}, que não consta nos documentos utilizados`));
+  L.push(ok(c.pmp)?m('PMP',`${fN(d.forn)} ÷ ${fN(c.compras)} × 360 = ${fD(c.pmp)}`):m('PMP','não calculado (depende das compras)'));
+  L.push(m('Ciclo operacional',`${nf1.format(c.pme)} + ${nf1.format(c.pmr)} = ${fD(c.co)}`));
+  L.push(ok(c.cf)?m('Ciclo financeiro',`${nf1.format(c.co)} − ${nf1.format(c.pmp)} = ${fD(c.cf)}`):m('Ciclo financeiro','não calculado (depende do PMP)'));
+  L.push(m('CGL',`${fN(d.ac)} − ${fN(d.pc)} = R$ ${fN(c.cgl)} mil`));
+  L.push(m('Ativo circ. financeiro',`${fN(d.caixa)} + ${fN(d.aplic)} + ${fN(d.outfin)} = R$ ${fN(c.acf)} mil`));
+  L.push(m('Passivo circ. financeiro',`${fN(d.emp)} + ${fN(d.div)} + ${fN(d.arr)} = R$ ${fN(c.pcf)} mil`));
+  L.push(m('NCG',`(${fN(d.ac)} − ${fN(c.acf)}) − (${fN(d.pc)} − ${fN(c.pcf)}) = ${fN(c.aco)} − ${fN(c.pco)} = R$ ${fN(c.ncg)} mil`));
+  L.push(m('Saldo de Tesouraria',`${fN(c.acf)} − ${fN(c.pcf)} = R$ ${fN(c.st)} mil`));
+  L.push(m('Prova',`CGL = NCG + ST → ${fN(c.cgl)} = ${fN(c.ncg)} + ${fN(c.st)} ${Math.abs(c.cgl-c.ncg-c.st)<1?'✓ confere':'✗'}`));
+  L.push(m('Vendas diárias',`${fN(d.rl)} ÷ 360 = R$ ${nf1.format(c.vd)} mil por dia`));
+  return `<div class="mem">${L.join('')}</div>`;
+}
+function analise(y,d,c,p,dp){
+  const P=[];
+  const gR=pct(d.rl,dp&&dp.rl), gC=pct(d.cmv,dp&&dp.cmv);
+  if(p) P.push(`<p><b>Atividade:</b> a receita líquida foi de ${fM(d.rl)} (${fP(gR)} sobre ${y-1}) e o CMV de ${fM(d.cmv)} (${fP(gC)}).</p>`);
+  else P.push(`<p><b>Atividade:</b> receita líquida de ${fM(d.rl)} e CMV de ${fM(d.cmv)}. Não há ano anterior nos documentos utilizados para comparação.</p>`);
+  let t=`<p><b>Prazos:</b> o estoque girou em ${fD(c.pme)}, os clientes pagaram em ${fD(c.pmr)}`+(ok(c.pmp)?` e os fornecedores foram pagos em ${fD(c.pmp)}.`:`; o PMP não pôde ser calculado.`);
+  if(p&&ok(c.cf)&&ok(p.cf)){
+    const parts=[['estocagem (PME)',c.pme-p.pme],['recebimento (PMR)',c.pmr-p.pmr],['pagamento (PMP)',-(c.pmp-p.pmp)]].sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+    const dcf=c.cf-p.cf, main=parts[0];
+    t+=` O ciclo financeiro ${dcf>0?'aumentou':'diminuiu'} ${nf1.format(Math.abs(dcf))} dias (de ${fD(p.cf)} para ${fD(c.cf)}). Decomposição: ΔPME ${sgn(c.pme-p.pme,v=>nf1.format(v))} + ΔPMR ${sgn(c.pmr-p.pmr,v=>nf1.format(v))} − ΔPMP ${sgn(c.pmp-p.pmp,v=>nf1.format(v))}. O fator de maior peso foi o prazo de ${main[0]}, que ${main[1]>0?'alongou':'encurtou'} o ciclo em ${nf1.format(Math.abs(main[1]))} dias.`;
+  } else if(p&&ok(c.cf)) t+=` O ciclo financeiro foi de ${fD(c.cf)}; o ano anterior não tem PMP calculável para comparação.`;
+  else if(ok(c.cf)) t+=` O ciclo financeiro foi de ${fD(c.cf)}.`;
+  P.push(t+'</p>');
+  if(ok(c.cf)) P.push(`<p><b>Significado do ciclo:</b> ${c.cf>0?`a empresa paga os fornecedores ${fD(c.cf)} antes de receber dos clientes e precisa financiar esse intervalo — o equivalente a ${fM(c.cf*c.vd)} em vendas.`:`a empresa recebe dos clientes ${fD(-c.cf)} antes de pagar os fornecedores; o ciclo é financiado pelos próprios fornecedores.`}</p>`);
+  let f=`<p><b>Capital de giro:</b> CGL de ${fM(c.cgl)}, NCG de ${fM(c.ncg)} e Saldo de Tesouraria de ${fM(c.st)}.`;
+  if(p){ const dN=c.ncg-p.ncg, dC=c.cgl-p.cgl, dS=c.st-p.st;
+    f+=` Em relação a ${y-1}, a NCG ${dN>0?'subiu':'caiu'} ${fM(Math.abs(dN))} e o CGL ${dC>0?'subiu':'caiu'} ${fM(Math.abs(dC))}; como ST = CGL − NCG, o Saldo de Tesouraria variou ${sgn(dS,fM)}.`;
+    if(c.st<0&&dN>dC) f+=' A NCG cresceu mais que o CGL, o que levou o saldo de tesouraria a ficar negativo.';
+  }
+  P.push(f+'</p>');
+  return P.join('');
+}
+function renderRel(){
+  if(RY===null) RY=S.base||2025;
+  document.getElementById('relYears').innerHTML=YEARS.map(y=>`<button type="button" class="chip" data-y="${y}" aria-pressed="${y===RY}">${y}</button>`).join('');
+  const y=RY, d=HAVAN[y], c=calc({...d}), dp=HAVAN[y-1]||null, p=dp?calc({...dp}):null;
+  c.cmvd=d.cmv/360;
+  document.getElementById('rEyebrow').textContent=`Havan S.A. · relatório anual ${y} · dados reais (${d.doc}) · R$ mil`;
+  document.getElementById('t-rel').textContent=`Relatório anual ${y}`;
+  document.getElementById('rHeadline').textContent= ok(c.cf)
+    ? `Ciclo financeiro de ${fD(c.cf)}, NCG de ${fM(c.ncg)} e Saldo de Tesouraria de ${fM(c.st)}${c.st<0?': parte do giro financiada por dívida de curto prazo.':'.'}`
+    : `Ciclo operacional de ${fD(c.co)} e Saldo de Tesouraria de ${fM(c.st)}. Ciclo financeiro indisponível por falta do estoque inicial.`;
+  // tabela de indicadores com ano anterior
+  const IND=[['Receita líquida','rl',fM,0,'m'],['CMV','cmv',fM,0,'m'],['Compras','compras',fM,0,'m'],['PME','pme',fD,1,'d'],['PMR','pmr',fD,1,'d'],['PMP','pmp',fD,-1,'d'],['Ciclo operacional','co',fD,1,'d'],['Ciclo financeiro','cf',fD,1,'d'],['CGL','cgl',fM,-1,'m'],['NCG','ncg',fM,1,'m'],['Saldo de Tesouraria','st',fM,-1,'m']];
+  const A={...c,rl:d.rl,cmv:d.cmv}, B=p?{...p,rl:dp.rl,cmv:dp.cmv}:{};
+  const rows=IND.map(([n,k,f,b,u])=>{
+    const a=A[k], v=B[k], dd=ok(a)&&ok(v)?a-v:null;
+    let badge='<span class="miss">sem comparação</span>';
+    if(ok(dd)){ if(Math.abs(dd)<(u==='d'?0.5:0.05)) badge='<span class="badge b-neu">estável</span>'; else if(b===0) badge=`<span class="badge b-neu">${dd>0?'aumentou':'diminuiu'}</span>`; else badge=(dd*b<0)?'<span class="badge b-ok">favorável</span>':'<span class="badge b-bad">desfavorável</span>'; }
+    const fd=u==='d'?(x=>nf1.format(x)+' dias'):fM;
+    return `<tr><td><b>${n}</b></td><td class="n">${f(a)}</td><td class="n">${p?f(v):'—'}</td><td class="n">${ok(dd)?sgn(dd,fd):'—'}</td><td>${badge}</td></tr>`;
+  }).join('');
+  // simulação de políticas
+  const pol=[0,15,30,45,60].map(dd=>{const s=simulate(c,dd,null);return `<tr><td><b>${dd===0?'À vista':dd+' dias'}</b></td><td class="n">${fD(s.co)}</td><td class="n">${fD(s.cf)}</td><td class="n ${s.dNCG>0?'up':s.dNCG<0?'down':''}">${sgn(s.dNCG,fM)}</td><td class="n">${fM(s.ncg)}</td><td class="n ${s.st<0?'up':''}">${fM(s.st)}</td><td>${!ok(s.st)?'—':s.st<0?'<span class="badge b-bad">Tesouraria negativa</span>':ok(s.cf)&&s.cf>0?'<span class="badge b-warn">Precisa financiar</span>':ok(s.cf)?'<span class="badge b-ok">Folga</span>':'<span class="badge b-ok">Tesouraria positiva</span>'}</td></tr>`;}).join('');
+  const stLim = ok(c.st)&&c.st>0 ? c.pmr+c.st/c.vd : null;
+  document.getElementById('relBody').innerHTML=`
+  <div class="g-kpi">
+    ${kpi('Ciclo financeiro',fD(c.cf),{miss:c.miss.cf,cls:ok(c.cf)?(c.cf>0?'is-bad':'is-ok'):'',note:`Ciclo operacional: ${fD(c.co)}`})}
+    ${kpi('NCG',fM(c.ncg),{note:'Necessidade de capital de giro'})}
+    ${kpi('Saldo de Tesouraria',fM(c.st),{cls:c.st<0?'is-bad':'is-ok',note:'CGL − NCG'})}
+    ${kpi('CGL',fM(c.cgl),{note:'Capital de giro líquido'})}
+  </div>
+  <div class="card rel-sec"><h2>1. Indicadores e comparação com ${p?y-1:'o ano anterior'}</h2>
+    ${p?'':'<p class="note" style="margin-bottom:10px">O ano anterior (2018) não consta nos documentos utilizados; por isso não há comparação.</p>'}
+    <div class="scroll"><table><thead><tr><th>Indicador</th><th class="n">${y}</th><th class="n">${p?y-1:'Ano anterior'}</th><th class="n">Variação</th><th>Avaliação</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+  <div class="card rel-sec"><h2>2. Análise dos resultados</h2><div class="prose">${analise(y,d,c,p,dp)}</div></div>
+  <div class="card rel-sec"><h2>3. Memória de cálculo</h2><p class="note" style="margin-bottom:8px">Valores em R$ mil, extraídos do balanço patrimonial e da DRE (${d.doc}); ano de 360 dias e saldos finais.</p>${memoria(y,d,c,dp)}</div>
+  <div class="card rel-sec"><h2>4. Simulação de políticas de recebimento em ${y}</h2><p class="note" style="margin-bottom:10px"><span class="tag t-sim">Simulação</span> Aplicada aos dados reais de ${y}, mantendo PME, PMP, vendas e CGL. PMR atual: ${fD(c.pmr)}.${ok(stLim)?` Limite de PMR com Saldo de Tesouraria ainda não negativo: ${fD(stLim)}.`:''}</p>
+    <div class="scroll"><table><thead><tr><th>Recebimento</th><th class="n">Ciclo operacional</th><th class="n">Ciclo financeiro</th><th class="n">Variação da NCG</th><th class="n">NCG</th><th class="n">Saldo de Tesouraria</th><th>Situação</th></tr></thead><tbody>${pol}</tbody></table></div></div>
+  <div class="card rel-sec"><h2>5. Fonte e premissas</h2><ul class="clean">
+    <li>Fonte: Havan S.A., demonstrações financeiras auditadas (Ernst &amp; Young), ${d.doc}, controladora — <a href="https://ri.havan.com.br/servicos-aos-investidores/resultados/">ri.havan.com.br</a>.</li>
+    <li>PMR informado pela própria Havan na nota 6 para ${y}: ${d.pmrHavan} dias (método da empresa); nosso cálculo: ${fD(c.pmr)}.</li>
+    <li>“Capital de giro” publicado pela Havan: ${fK(d.cgHavan)}; nosso cálculo pelo mesmo critério: ${fK(d.cr+CRNC[y]+d.ef-d.forn)}.</li>
+    <li>Premissas: 360 dias; saldos finais; compras = CMV + estoque final − estoque inicial; classificação das contas conforme a tela Fórmulas e premissas.</li>
+  </ul></div>`;
+}
+document.getElementById('relYears').addEventListener('click',e=>{const b=e.target.closest('.chip'); if(!b) return; RY=+b.dataset.y; renderRel();});
+const inFrame=(()=>{try{return window.top!==window}catch(e){return true}})();
+if(inFrame) document.getElementById('printHint').textContent='No link online a impressão pelo navegador é bloqueada; para imprimir ou salvar em PDF, abra o arquivo .html no computador e use o botão. O relatório usa sempre os dados reais das demonstrações.';
+document.getElementById('btnPrint').addEventListener('click',()=>{ try{ window.print(); }catch(e){} });
+
+/* fórmulas */
+const FX=[
+  ['Prazo Médio de Estocagem (PME)','PME = Estoque ÷ CMV × 360','Quantos dias, em média, a mercadoria fica no estoque até ser vendida. Quanto maior, mais dinheiro parado em mercadoria.'],
+  ['Prazo Médio de Recebimento (PMR)','PMR = Contas a receber ÷ Receita líquida × 360','Quantos dias a empresa leva para receber as vendas a prazo. É o indicador diretamente afetado pela política de crédito e cobrança.'],
+  ['Compras do período','Compras = CMV + Estoque final − Estoque inicial','As compras não aparecem na DRE; são deduzidas do custo das vendas e da variação do estoque.'],
+  ['Prazo Médio de Pagamento (PMP)','PMP = Fornecedores ÷ Compras × 360','Quantos dias a empresa leva para pagar os fornecedores. Prazos maiores significam financiamento sem juros explícitos.'],
+  ['Ciclo Operacional (CO)','CO = PME + PMR','Tempo total desde a compra da mercadoria até o recebimento da venda.'],
+  ['Ciclo Financeiro (CF) ou de Conversão de Caixa','CF = CO − PMP = PME + PMR − PMP','Dias entre o pagamento ao fornecedor e o recebimento do cliente. Positivo: a empresa precisa financiar esse período. Negativo: os fornecedores financiam a operação.'],
+  ['Capital de Giro Líquido (CGL)','CGL = Ativo circulante − Passivo circulante','Recursos de longo prazo que sobram para financiar o curto prazo. Na simulação, fica constante.'],
+  ['Necessidade de Capital de Giro (NCG)','NCG = Ativo circulante operacional − Passivo circulante operacional','Quanto a operação consome de recursos. Cresce quando o PMR ou o PME aumentam e diminui quando o PMP aumenta.'],
+  ['Saldo de Tesouraria (ST)','ST = Ativo circ. financeiro − Passivo circ. financeiro = CGL − NCG','Folga (positivo) ou dependência de crédito de curto prazo (negativo). ST negativo indica que parte do giro é financiada por dívida de curto prazo.'],
+  ['Efeito da mudança de prazo na NCG','ΔNCG = Receita líquida ÷ 360 × ΔPMR − Compras ÷ 360 × ΔPMP','Cada dia de prazo a mais ao cliente prende um dia de vendas; cada dia a mais com o fornecedor libera um dia de compras. Novo ST = CGL − (NCG + ΔNCG).'],
+  ['Custo financeiro anual (opcional)','Custo = ΔNCG × taxa anual (Selic)','Estimativa do custo de financiar (ou do rendimento de aplicar) a variação da NCG durante um ano.'],
+];
+document.getElementById('fxList').innerHTML=FX.map(([t,f,p])=>`<div class="card"><h3>${t}</h3><div class="formula">${f}</div><p>${p}</p></div>`).join('');
+
+/* ======================= CONTROLE ======================= */
+function loadYear(y){
+  S.base=y; S.inp = y ? {...HAVAN[y], compras:null, pmeI:null, pmrI:null, pmpI:null} : {};
+  ['doc','cgHavan','pmrHavan','pmrvHavan'].forEach(k=>delete S.inp[k]);
+  S.edited=false; S.sim.pmp=null; recompute();
+}
+function recompute(){
+  S.calc=calc(S.inp);
+  const tg=document.getElementById('srcTag');
+  if(!S.base){ tg.className='tag t-edit'; tg.textContent='Dados informados pelo usuário'; }
+  else if(S.edited){ tg.className='tag t-edit'; tg.textContent=`Dados editados · base Havan ${S.base}`; }
+  else { tg.className='tag t-real'; tg.textContent=`Dado real · DF Havan ${S.base}`; }
+  document.getElementById('yearSel').value = S.base?String(S.base):'outra';
+  renderUnit(); renderForm(); renderPainel(); renderSim(); renderCmp(); renderHist(); renderRel();
+}
+const sel=document.getElementById('yearSel');
+sel.innerHTML=YEARS.slice().reverse().map(y=>`<option value="${y}">Havan S.A. · ${y}${y===2025?' (padrão)':''}</option>`).join('')+'<option value="outra">Outra empresa (preencher)</option>';
+sel.addEventListener('change',()=>{ loadYear(sel.value==='outra'?null:+sel.value); if(sel.value==='outra') go('dados'); });
+document.getElementById('btnCalc').addEventListener('click',()=>{ if(readForm()){ recompute(); go('painel'); } else { const m=document.getElementById('dataMsg'); m.className='alert a-bad'; m.querySelector('b').textContent='Valor inválido'; m.querySelector('p').textContent='Corrija os campos marcados em vermelho (use só números, pontos e vírgula).'; } });
+document.getElementById('unitSel').addEventListener('click',e=>{ const b=e.target.closest('button[data-u]'); if(!b||b.dataset.u===S.unit) return; readForm(); S.unit=b.dataset.u; renderUnit(); renderForm(); });
+document.getElementById('btnRestore').addEventListener('click',()=>loadYear(S.base||2025));
+document.getElementById('btnClear').addEventListener('click',()=>{ S.base=null; S.inp={}; S.edited=false; S.sim.pmp=null; recompute(); });
+document.getElementById('pmrChips').addEventListener('click',e=>{ const b=e.target.closest('.chip'); if(!b) return; S.sim.pmr=+b.dataset.d; renderSim(); renderCmp(); });
+document.getElementById('btnSim').addEventListener('click',()=>{
+  const cu=parseNum(document.getElementById('pmrCustom').value), pp=parseNum(document.getElementById('pmpSim').value);
+  const c=S.calc; if(ok(cu)&&cu>=0) S.sim.pmr=cu; if(ok(pp)&&pp>=0) S.sim.pmp = (ok(c.pmp)&&Math.abs(pp-c.pmp)<0.05)?null:pp; renderSim(); renderCmp();
+});
+['pmrCustom','pmpSim'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('btnSim').click(); }));
+document.getElementById('btnSimReset').addEventListener('click',()=>{ const c=S.calc; S.sim.pmr=ok(c.pmr)?c.pmr:30; S.sim.pmp=null; renderSim(); renderCmp(); });
+document.getElementById('polTable').addEventListener('click',e=>{ const tr=e.target.closest('tr[data-d]'); if(!tr) return; S.sim.pmr=+tr.dataset.d; renderSim(); renderCmp(); });
+document.getElementById('histTable').addEventListener('click',e=>{ const tr=e.target.closest('tr[data-y]'); if(!tr) return; RY=+tr.dataset.y; loadYear(+tr.dataset.y); go('painel'); });
+document.getElementById('selicOn').addEventListener('change',e=>{ S.selicOn=e.target.checked; renderCmp(); });
+document.getElementById('selicRate').addEventListener('input',e=>{ S.selic=parseNum(e.target.value); renderCmp(); });
+
+/* rotas */
+const VIEWS={painel:'Painel',dados:'Dados da empresa',simulacao:'Simulação › Simular prazos',comparacao:'Simulação › Comparação de cenários',historico:'Histórico',relatorio:'Relatório anual',formulas:'Fórmulas e premissas',fontes:'Fontes'};
+function go(v){ try{ history.replaceState(null,'','#'+v); }catch(e){} route(v); }
+function route(force){
+  let v=typeof force==='string'?force:location.hash.slice(1); if(!VIEWS[v]) v='painel';
+  const sb=document.querySelector('.sidebar'); sb.classList.remove('is-open'); document.getElementById('menuBtn').setAttribute('aria-expanded','false');
+  document.getElementById('menuLbl').textContent=VIEWS[v].split(' › ')[0];
+  document.querySelectorAll('.view').forEach(s=>s.classList.toggle('is-on',s.id==='v-'+v));
+  document.querySelectorAll('#nav a, .tabs a').forEach(a=>{
+    if(a.classList.contains('nav-parent')){ a.removeAttribute('aria-current'); a.classList.toggle('in-group',a.dataset.group.split(' ').includes(v)); return; }
+    if(a.getAttribute('href')==='#'+v) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+  document.getElementById('crumb').textContent=VIEWS[v];
+  requestAnimationFrame(redraw); scrollTo(0,0);
+}
+function redraw(){
+  if(!S.calc) return;
+  drawCycle(document.getElementById('cycMain'),S.calc);
+  const s=S.simR; if(s){ const m=Math.max(S.calc.co||0,s.co||0,S.calc.pmp||0,s.pmp||0); drawCycle(document.getElementById('cycA'),S.calc,m); drawCycle(document.getElementById('cycS'),s,m); }
+  drawLines(); drawBars();
+}
+const ro=new ResizeObserver(()=>redraw());
+['cycMain','cycA','cycS','chLines','chBars'].forEach(id=>ro.observe(document.getElementById(id)));
+addEventListener('hashchange',()=>route());
+/* navegação por clique: não depende do navegador atualizar o endereço (alguns celulares e visualizadores bloqueiam) */
+document.addEventListener('click',e=>{
+  const a=e.target.closest('a[href^="#"]'); if(!a) return;
+  const v=a.getAttribute('href').slice(1); if(!VIEWS[v]) return;
+  e.preventDefault();
+  try{ if(location.hash!=='#'+v) history.replaceState(null,'','#'+v); }catch(err){}
+  route(v);
+});
+document.getElementById('menuBtn').addEventListener('click',()=>{ const sb=document.querySelector('.sidebar'); const o=sb.classList.toggle('is-open'); document.getElementById('menuBtn').setAttribute('aria-expanded',String(o)); });
+loadYear(2025); route();
+}
+</script>
+</body>
+</html>
